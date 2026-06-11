@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { tools } from "@/tools/registry";
+import { tools, categoryLabels, type ToolCategory } from "@/tools/registry";
 import { Shield } from "lucide-react";
+
+const categoryOrder: ToolCategory[] = ["document", "image", "developer", "utility"];
 
 export default function Home() {
   return (
@@ -22,32 +24,41 @@ export default function Home() {
       </section>
 
       {/* Tool Cards */}
-      <section className="px-6 pb-16 max-w-4xl mx-auto w-full">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {tools.map((tool, i) => {
-            const Icon = tool.icon;
-            return (
-              <Link key={tool.slug} href={`/tools/${tool.slug}`}>
-                <div
-                  className={`group relative flex flex-col gap-3 p-6 rounded-xl border border-border/50 bg-card transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:border-foreground/15 cursor-pointer h-full animate-fade-in-up stagger-${i + 1}`}
-                >
-                  <div className="p-2.5 rounded-lg bg-muted/50 w-fit">
-                    <Icon className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-base">{tool.name}</h3>
-                    <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
-                      {tool.description}
-                    </p>
-                  </div>
-                  <span className="text-muted-foreground/40 text-sm transition-colors group-hover:text-foreground/60 mt-1">
-                    →
-                  </span>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
+      <section className="px-6 pb-16 max-w-5xl mx-auto w-full space-y-10">
+        {categoryOrder.map((cat) => {
+          const catTools = tools.filter((t) => t.category === cat);
+          if (catTools.length === 0) return null;
+          return (
+            <div key={cat}>
+              <h2 className="text-sm font-medium text-muted-foreground mb-4 px-1">
+                {categoryLabels[cat]}
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {catTools.map((tool) => {
+                  const Icon = tool.icon;
+                  return (
+                    <Link key={tool.slug} href={`/tools/${tool.slug}`}>
+                      <div className="group relative flex flex-col gap-3 p-6 rounded-xl border border-border/50 bg-card transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:border-foreground/15 cursor-pointer h-full">
+                        <div className="p-2.5 rounded-lg bg-muted/50 w-fit">
+                          <Icon className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-base">{tool.name}</h3>
+                          <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
+                            {tool.description}
+                          </p>
+                        </div>
+                        <span className="text-muted-foreground/40 text-sm transition-colors group-hover:text-foreground/60 mt-1">
+                          →
+                        </span>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
       </section>
 
       {/* Footer */}
