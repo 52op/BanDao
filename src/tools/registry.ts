@@ -8,6 +8,7 @@ import {
   QrCode,
   Code2,
   FileCode,
+  Crop,
   type LucideIcon,
 } from "lucide-react";
 
@@ -103,6 +104,14 @@ export const tools: ToolMeta[] = [
     icon: FileText,
     category: "document",
     component: lazy(() => import("./pdf-merge")),
+  },
+  {
+    slug: "image-crop",
+    name: "图片裁剪",
+    description: "裁剪、调整图片尺寸，支持批量下载",
+    icon: Crop,
+    category: "image",
+    component: lazy(() => import("./image-crop")),
   },
 ];
 
