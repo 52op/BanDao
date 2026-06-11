@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Menu } from "lucide-react";
+import { Menu, Search } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -10,7 +10,12 @@ import {
 } from "@/components/ui/sheet";
 import { Sidebar } from "./sidebar";
 
-export function Header({ isHome }: { isHome?: boolean }) {
+interface HeaderProps {
+  isHome?: boolean;
+  onSearch?: () => void;
+}
+
+export function Header({ isHome, onSearch }: HeaderProps) {
   if (isHome) {
     return (
       <header className="flex items-center justify-between h-14 px-6 border-b border-border/40 bg-background/80 backdrop-blur-md shrink-0">
@@ -20,8 +25,20 @@ export function Header({ isHome }: { isHome?: boolean }) {
           </span>
           <span className="font-heading text-base">办到</span>
         </Link>
-        <div className="flex items-center gap-5 text-xs text-muted-foreground/60">
-          <span className="hidden sm:inline">纯前端 · 完全免费</span>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onSearch}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border/50 text-xs text-muted-foreground/60 hover:border-foreground/20 hover:text-foreground/60 transition-colors"
+          >
+            <Search className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">搜索</span>
+            <kbd className="hidden sm:inline text-[10px] bg-muted/50 px-1 py-0.5 rounded">
+              Ctrl+K
+            </kbd>
+          </button>
+          <span className="hidden sm:inline text-xs text-muted-foreground/60">
+            纯前端 · 完全免费
+          </span>
         </div>
       </header>
     );
@@ -46,6 +63,13 @@ export function Header({ isHome }: { isHome?: boolean }) {
         </span>
         <span className="font-heading text-sm">办到</span>
       </Link>
+
+      <button
+        onClick={onSearch}
+        className="ml-auto flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs text-muted-foreground/60 hover:text-foreground/60 transition-colors"
+      >
+        <Search className="h-3.5 w-3.5" />
+      </button>
     </header>
   );
 }
