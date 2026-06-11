@@ -5,10 +5,13 @@ import {
   FileEdit,
   Shield,
   FileImage,
+  QrCode,
+  Code2,
+  FileCode,
   type LucideIcon,
 } from "lucide-react";
 
-export type ToolCategory = "pdf" | "image" | "text" | "privacy";
+export type ToolCategory = "document" | "image" | "developer" | "utility";
 
 export interface ToolMeta {
   slug: string;
@@ -21,10 +24,10 @@ export interface ToolMeta {
 }
 
 export const categoryLabels: Record<ToolCategory, string> = {
-  pdf: "PDF 工具",
+  document: "文档工具",
   image: "图片处理",
-  text: "文本助手",
-  privacy: "隐私安全",
+  developer: "开发工具",
+  utility: "实用工具",
 };
 
 export const tools: ToolMeta[] = [
@@ -33,7 +36,7 @@ export const tools: ToolMeta[] = [
     name: "PDF 拆分提取",
     description: "选择页面，秒级拆分下载新 PDF",
     icon: FileText,
-    category: "pdf",
+    category: "document",
     component: lazy(() => import("./pdf-split")),
   },
   {
@@ -50,7 +53,7 @@ export const tools: ToolMeta[] = [
     name: "文本助手",
     description: "文本去重、格式化、对比",
     icon: FileEdit,
-    category: "text",
+    category: "developer",
     component: lazy(() => import("./text-cleaner")),
   },
   {
@@ -58,7 +61,7 @@ export const tools: ToolMeta[] = [
     name: "隐私水印",
     description: "证件照加水印，隐私保护",
     icon: Shield,
-    category: "privacy",
+    category: "image",
     component: lazy(() => import("./watermark")),
   },
   {
@@ -68,6 +71,30 @@ export const tools: ToolMeta[] = [
     icon: FileImage,
     category: "image",
     component: lazy(() => import("./svg-convert")),
+  },
+  {
+    slug: "qr-code",
+    name: "二维码生成器",
+    description: "文本、链接转二维码，支持批量下载",
+    icon: QrCode,
+    category: "utility",
+    component: lazy(() => import("./qr-code")),
+  },
+  {
+    slug: "json-formatter",
+    name: "JSON 格式化",
+    description: "格式化、压缩、语法检查",
+    icon: Code2,
+    category: "developer",
+    component: lazy(() => import("./json-formatter")),
+  },
+  {
+    slug: "markdown-preview",
+    name: "Markdown 预览",
+    description: "实时预览 Markdown，支持导出 HTML",
+    icon: FileCode,
+    category: "document",
+    component: lazy(() => import("./markdown-preview")),
   },
 ];
 
