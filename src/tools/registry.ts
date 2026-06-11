@@ -96,6 +96,14 @@ export const tools: ToolMeta[] = [
     category: "document",
     component: lazy(() => import("./markdown-preview")),
   },
+  {
+    slug: "pdf-merge",
+    name: "PDF 合并",
+    description: "多个 PDF 文件合并为一个",
+    icon: FileText,
+    category: "document",
+    component: lazy(() => import("./pdf-merge")),
+  },
 ];
 
 export function getToolBySlug(slug: string): ToolMeta | undefined {
