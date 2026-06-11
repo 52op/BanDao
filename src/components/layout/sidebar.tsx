@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { tools } from "@/tools/registry";
+import { tools, categoryLabels, type ToolCategory } from "@/tools/registry";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
+
+const categoryOrder: ToolCategory[] = ["document", "image", "developer", "utility"];
 
 export function Sidebar({ className }: { className?: string }) {
   const pathname = usePathname();
@@ -28,29 +30,40 @@ export function Sidebar({ className }: { className?: string }) {
       <Separator className="opacity-40" />
 
       <nav className="flex-1 overflow-y-auto px-3 py-3">
-        <ul className="space-y-0.5">
-          {tools.map((tool) => {
-            const href = `/tools/${tool.slug}`;
-            const isActive = pathname === href;
-            const Icon = tool.icon;
-            return (
-              <li key={tool.slug}>
-                <Link
-                  href={href}
-                  className={cn(
-                    "flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-all duration-200",
-                    isActive
-                      ? "bg-sidebar-accent text-foreground font-medium"
-                      : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50"
-                  )}
-                >
-                  <Icon className="h-4 w-4 shrink-0 opacity-60" />
-                  {tool.name}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+        {categoryOrder.map((cat) => {
+          const catTools = tools.filter((t) => t.category === cat);
+          if (catTools.length === 0) return null;
+          return (
+            <div key={cat} className="mb-3">
+              <p className="px-3 py-1.5 text-xs font-medium text-muted-foreground/60 uppercase tracking-wider">
+                {categoryLabels[cat]}
+              </p>
+              <ul className="space-y-0.5">
+                {catTools.map((tool) => {
+                  const href = `/tools/${tool.slug}`;
+                  const isActive = pathname === href;
+                  const Icon = tool.icon;
+                  return (
+                    <li key={tool.slug}>
+                      <Link
+                        href={href}
+                        className={cn(
+                          "flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-all duration-200",
+                          isActive
+                            ? "bg-sidebar-accent text-foreground font-medium"
+                            : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50"
+                        )}
+                      >
+                        <Icon className="h-4 w-4 shrink-0 opacity-60" />
+                        {tool.name}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          );
+        })}
       </nav>
 
       <div className="px-5 py-4 border-t border-border/40">
