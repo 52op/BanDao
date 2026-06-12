@@ -80,8 +80,12 @@ export default function ImageCropTool() {
   const getCroppedImg = useCallback(
     async (image: HTMLImageElement, crop: Crop): Promise<Blob> => {
       const canvas = document.createElement("canvas");
-      const scaleX = image.naturalWidth / image.width;
-      const scaleY = image.naturalHeight / image.height;
+      // ReactCrop 坐标基于 CSS 显示尺寸，需用显示尺寸计算缩放比
+      const displayedEl = imgRef.current;
+      const displayedWidth = displayedEl ? displayedEl.width : image.naturalWidth;
+      const displayedHeight = displayedEl ? displayedEl.height : image.naturalHeight;
+      const scaleX = image.naturalWidth / displayedWidth;
+      const scaleY = image.naturalHeight / displayedHeight;
 
       canvas.width = crop.width * scaleX;
       canvas.height = crop.height * scaleY;
