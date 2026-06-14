@@ -9,6 +9,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Sidebar } from "./sidebar";
+import { UserMenu } from "@/components/auth/user-menu";
 
 interface HeaderProps {
   isHome?: boolean;
@@ -36,9 +37,7 @@ export function Header({ isHome, onSearch }: HeaderProps) {
               Ctrl+K
             </kbd>
           </button>
-          <span className="hidden sm:inline text-xs text-muted-foreground/60">
-            纯前端 · 完全免费
-          </span>
+          <UserMenu />
         </div>
       </header>
     );
@@ -64,12 +63,15 @@ export function Header({ isHome, onSearch }: HeaderProps) {
         <span className="font-heading text-sm">办到</span>
       </Link>
 
-      <button
-        onClick={onSearch}
-        className="ml-auto flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs text-muted-foreground/60 hover:text-foreground/60 transition-colors"
-      >
-        <Search className="h-3.5 w-3.5" />
-      </button>
+      <div className="ml-auto flex items-center gap-2">
+        <button
+          onClick={onSearch}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs text-muted-foreground/60 hover:text-foreground/60 transition-colors"
+        >
+          <Search className="h-3.5 w-3.5" />
+        </button>
+        <UserMenu />
+      </div>
     </header>
   );
 }

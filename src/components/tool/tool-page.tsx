@@ -1,4 +1,4 @@
-import type { ToolMeta } from "@/tools/registry";
+import type { ToolMeta } from "@/tools/types";
 
 export function ToolPage({
   tool,

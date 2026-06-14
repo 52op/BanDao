@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Command } from "cmdk";
-import { tools, categoryLabels, type ToolCategory } from "@/tools/registry";
+import { fetchTools, fetchCategories, type ToolItem, type CategoryItem } from "@/lib/api";
+import { getIcon } from "@/lib/icon-map";
 
 interface CommandMenuProps {
   open: boolean;
@@ -12,6 +13,13 @@ interface CommandMenuProps {
 
 export function CommandMenu({ open, onOpenChange }: CommandMenuProps) {
   const router = useRouter();
+  const [tools, setTools] = useState<ToolItem[]>([]);
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
+
+  useEffect(() => {
+    fetchTools().then(setTools);
+    fetchCategories().then(setCategories);
+  }, []);
 
   const handleSelect = useCallback(
     (slug: string) => {
@@ -34,8 +42,6 @@ export function CommandMenu({ open, onOpenChange }: CommandMenuProps) {
 
   if (!open) return null;
 
-  const categoryOrder: ToolCategory[] = ["document", "image", "developer", "utility"];
-
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-[20vh]">
       <div
@@ -55,21 +61,21 @@ export function CommandMenu({ open, onOpenChange }: CommandMenuProps) {
           <Command.Empty className="py-6 text-center text-sm text-muted-foreground/50">
             没有找到匹配的工具
           </Command.Empty>
-          {categoryOrder.map((cat) => {
-            const catTools = tools.filter((t) => t.category === cat);
+          {categories.map((cat) => {
+            const catTools = tools.filter((t) => t.category_slug === cat.slug);
             if (catTools.length === 0) return null;
             return (
               <Command.Group
-                key={cat}
-                heading={categoryLabels[cat]}
+                key={cat.slug}
+                heading={cat.name}
                 className="text-xs text-muted-foreground/60 mb-1"
               >
                 {catTools.map((tool) => {
-                  const Icon = tool.icon;
+                  const Icon = getIcon(tool.icon);
                   return (
                     <Command.Item
                       key={tool.slug}
-                      value={`${tool.name} ${tool.description} ${categoryLabels[tool.category]}`}
+                      value={`${tool.name} ${tool.description} ${cat.name}`}
                       onSelect={() => handleSelect(tool.slug)}
                       className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm cursor-pointer transition-colors data-[selected=true]:bg-sidebar-accent data-[selected=true]:text-foreground"
                     >
@@ -81,7 +87,7 @@ export function CommandMenu({ open, onOpenChange }: CommandMenuProps) {
                         </span>
                       </div>
                       <span className="text-[10px] text-muted-foreground/40 bg-muted/50 px-1.5 py-0.5 rounded">
-                        {categoryLabels[tool.category]}
+                        {cat.name}
                       </span>
                     </Command.Item>
                   );

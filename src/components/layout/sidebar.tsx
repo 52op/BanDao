@@ -1,15 +1,22 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { tools, categoryLabels, type ToolCategory } from "@/tools/registry";
+import { fetchTools, fetchCategories, type ToolItem, type CategoryItem } from "@/lib/api";
+import { getIcon } from "@/lib/icon-map";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 
-const categoryOrder: ToolCategory[] = ["document", "image", "developer", "utility"];
-
 export function Sidebar({ className }: { className?: string }) {
   const pathname = usePathname();
+  const [tools, setTools] = useState<ToolItem[]>([]);
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
+
+  useEffect(() => {
+    fetchTools().then(setTools);
+    fetchCategories().then(setCategories);
+  }, []);
 
   return (
     <aside
@@ -30,19 +37,19 @@ export function Sidebar({ className }: { className?: string }) {
       <Separator className="opacity-40" />
 
       <nav className="flex-1 overflow-y-auto px-3 py-3">
-        {categoryOrder.map((cat) => {
-          const catTools = tools.filter((t) => t.category === cat);
+        {categories.map((cat) => {
+          const catTools = tools.filter((t) => t.category_slug === cat.slug);
           if (catTools.length === 0) return null;
           return (
-            <div key={cat} className="mb-3">
+            <div key={cat.slug} className="mb-3">
               <p className="px-3 py-1.5 text-xs font-medium text-muted-foreground/60 uppercase tracking-wider">
-                {categoryLabels[cat]}
+                {cat.name}
               </p>
               <ul className="space-y-0.5">
                 {catTools.map((tool) => {
                   const href = `/tools/${tool.slug}`;
                   const isActive = pathname === href;
-                  const Icon = tool.icon;
+                  const Icon = getIcon(tool.icon);
                   return (
                     <li key={tool.slug}>
                       <Link

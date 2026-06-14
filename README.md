@@ -1,36 +1,75 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 办到 (BanDao)
 
-## Getting Started
+免费在线办公工具箱，提供 PDF 处理、图片压缩、文本工具、开发小工具等常用功能。
 
-First, run the development server:
+**线上地址**: [https://bandao.it0731.cn](https://bandao.it0731.cn)
+
+## 技术栈
+
+| 类别 | 技术 |
+|------|------|
+| 前端 | Next.js 16 + React 19 + TypeScript |
+| 样式 | Tailwind CSS 4 + Shadcn/ui |
+| 后端 | Go + Gin + SQLite |
+| 认证 | GoAuth SSO (RS256) |
+| 部署 | VPS + Nginx / Cloudflare Pages |
+
+## 快速开始
+
+### 前端
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env.local
+npm run dev        # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 后端
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+cd BanDao-Backend
+go build ./cmd/bandao
+./bandao           # http://localhost:8080
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 项目结构
 
-## Learn More
+```
+BanDao/                   # Next.js 前端 + 后台管理
+├── src/
+│   ├── app/
+│   │   ├── api/          # SSO 认证 + 管理 API 代理
+│   │   ├── admin/        # 后台管理页面
+│   │   └── tools/        # 工具页
+│   ├── lib/              # 工具函数
+│   └── tools/            # 纯前端工具组件
+│
+BanDao-Backend/           # Go 后端服务
+├── cmd/bandao/           # 入口
+├── internal/
+│   ├── config/           # 配置
+│   ├── db/               # 数据库
+│   ├── handlers/         # API 处理
+│   ├── services/         # 文件转换服务
+│   └── middleware/       # CORS + 认证
+```
 
-To learn more about Next.js, take a look at the following resources:
+## 工具列表
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- PDF 拆分 / 合并
+- 图片压缩 / 裁剪 / SVG 转换
+- 文本助手 / Markdown 预览
+- JSON 格式化
+- 二维码生成
+- 隐私水印
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 部署
 
-## Deploy on Vercel
+详见 [布署方法.md](./布署方法.md)，支持两种方案：
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **方案 A**: VPS 全栈部署（推荐）
+- **方案 B**: Cloudflare Pages + VPS 混合部署
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 许可
+
+MIT

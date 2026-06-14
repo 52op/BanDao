@@ -1,12 +1,20 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { tools, categoryLabels, type ToolCategory } from "@/tools/registry";
 import { Shield } from "lucide-react";
-
-const categoryOrder: ToolCategory[] = ["document", "image", "developer", "utility"];
+import { fetchTools, fetchCategories, type ToolItem, type CategoryItem } from "@/lib/api";
+import { getIcon } from "@/lib/icon-map";
 
 export default function Home() {
+  const [tools, setTools] = useState<ToolItem[]>([]);
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
+
+  useEffect(() => {
+    fetchTools().then(setTools);
+    fetchCategories().then(setCategories);
+  }, []);
+
   return (
     <div className="min-h-full flex flex-col">
       {/* Hero */}
@@ -25,17 +33,17 @@ export default function Home() {
 
       {/* Tool Cards */}
       <section className="px-6 pb-16 max-w-5xl mx-auto w-full space-y-10">
-        {categoryOrder.map((cat) => {
-          const catTools = tools.filter((t) => t.category === cat);
+        {categories.map((cat) => {
+          const catTools = tools.filter((t) => t.category_slug === cat.slug);
           if (catTools.length === 0) return null;
           return (
-            <div key={cat}>
+            <div key={cat.slug}>
               <h2 className="text-sm font-medium text-muted-foreground mb-4 px-1">
-                {categoryLabels[cat]}
+                {cat.name}
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {catTools.map((tool) => {
-                  const Icon = tool.icon;
+                  const Icon = getIcon(tool.icon);
                   return (
                     <Link key={tool.slug} href={`/tools/${tool.slug}`}>
                       <div className="group relative flex flex-col gap-3 p-6 rounded-xl border border-border/50 bg-card transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:border-foreground/15 cursor-pointer h-full">

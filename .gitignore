@@ -42,3 +42,6 @@ next-env.d.ts
 
 # Playwright MCP 截图/日志
 .playwright-mcp/
+
+# 开发文档
+docs/
