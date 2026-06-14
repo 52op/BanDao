@@ -45,3 +45,5 @@ next-env.d.ts
 
 # 开发文档
 docs/
+
+.claude/

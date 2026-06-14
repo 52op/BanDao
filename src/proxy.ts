@@ -7,9 +7,10 @@ function getSessionUser(request: NextRequest) {
   if (!sessionCookie?.value) return null;
 
   try {
-    const payload = JSON.parse(
-      Buffer.from(sessionCookie.value, "base64").toString("utf-8")
-    );
+    // atob 解码为 Latin1 字节串，需 TextDecoder 还原 UTF-8
+    const binary = atob(sessionCookie.value);
+    const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+    const payload = JSON.parse(new TextDecoder().decode(bytes));
     if (!payload?.id) return null;
     return payload;
   } catch {
