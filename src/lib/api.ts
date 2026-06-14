@@ -50,6 +50,11 @@ const FALLBACK_TOOLS: ToolItem[] = [
   { slug: "markdown-preview", name: "Markdown 预览", description: "实时预览 Markdown，支持导出 HTML", icon: "FileCode", category_slug: "document", category_name: "文档工具", sort_order: 7, needs_unlock: false, processor: "frontend" },
   { slug: "pdf-merge", name: "PDF 合并", description: "多个 PDF 文件合并为一个", icon: "FileText", category_slug: "document", category_name: "文档工具", sort_order: 8, needs_unlock: false, processor: "frontend" },
   { slug: "image-crop", name: "图片裁剪", description: "裁剪、调整图片尺寸，支持批量下载", icon: "Crop", category_slug: "image", category_name: "图片处理", sort_order: 9, needs_unlock: false, processor: "frontend" },
+  { slug: "pdf-to-word", name: "PDF 转 Word", description: "将 PDF 文件转换为 Word 文档", icon: "FileText", category_slug: "document", category_name: "文档工具", sort_order: 10, needs_unlock: false, processor: "go" },
+  { slug: "word-to-pdf", name: "Word 转 PDF", description: "将 Word 文档转换为 PDF 文件", icon: "FileText", category_slug: "document", category_name: "文档工具", sort_order: 11, needs_unlock: false, processor: "go" },
+  { slug: "excel-to-pdf", name: "Excel 转 PDF", description: "将 Excel 表格转换为 PDF 文件", icon: "FileText", category_slug: "document", category_name: "文档工具", sort_order: 12, needs_unlock: false, processor: "go" },
+  { slug: "ppt-to-pdf", name: "PPT 转 PDF", description: "将 PowerPoint 演示文稿转换为 PDF", icon: "FileText", category_slug: "document", category_name: "文档工具", sort_order: 13, needs_unlock: false, processor: "go" },
+  { slug: "format-convert", name: "格式转换", description: "支持 PDF/Word/Excel/PPT/HTML/RTF 等格式互转", icon: "FileCode", category_slug: "document", category_name: "文档工具", sort_order: 14, needs_unlock: false, processor: "go" },
 ];
 
 export async function fetchTools(): Promise<ToolItem[]> {

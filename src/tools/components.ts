@@ -11,6 +11,11 @@ const toolComponents: Record<string, LazyExoticComponent<ComponentType>> = {
   "markdown-preview": lazy(() => import("./markdown-preview")),
   "pdf-merge": lazy(() => import("./pdf-merge")),
   "image-crop": lazy(() => import("./image-crop")),
+  "pdf-to-word": lazy(() => import("./pdf-to-word")),
+  "word-to-pdf": lazy(() => import("./word-to-pdf")),
+  "excel-to-pdf": lazy(() => import("./excel-to-pdf")),
+  "ppt-to-pdf": lazy(() => import("./ppt-to-pdf")),
+  "format-convert": lazy(() => import("./format-convert")),
 };
 
 export function getToolComponent(slug: string): LazyExoticComponent<ComponentType> | undefined {

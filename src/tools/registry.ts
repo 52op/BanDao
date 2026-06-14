@@ -113,6 +113,46 @@ export const tools: ToolMeta[] = [
     category: "image",
     component: lazy(() => import("./image-crop")),
   },
+  {
+    slug: "pdf-to-word",
+    name: "PDF 转 Word",
+    description: "将 PDF 文件转换为 Word 文档",
+    icon: FileText,
+    category: "document",
+    component: lazy(() => import("./pdf-to-word")),
+  },
+  {
+    slug: "word-to-pdf",
+    name: "Word 转 PDF",
+    description: "将 Word 文档转换为 PDF 文件",
+    icon: FileText,
+    category: "document",
+    component: lazy(() => import("./word-to-pdf")),
+  },
+  {
+    slug: "excel-to-pdf",
+    name: "Excel 转 PDF",
+    description: "将 Excel 表格转换为 PDF 文件",
+    icon: FileText,
+    category: "document",
+    component: lazy(() => import("./excel-to-pdf")),
+  },
+  {
+    slug: "ppt-to-pdf",
+    name: "PPT 转 PDF",
+    description: "将 PowerPoint 演示文稿转换为 PDF",
+    icon: FileText,
+    category: "document",
+    component: lazy(() => import("./ppt-to-pdf")),
+  },
+  {
+    slug: "format-convert",
+    name: "格式转换",
+    description: "支持 PDF/Word/Excel/PPT/HTML/RTF 等格式互转",
+    icon: FileCode,
+    category: "document",
+    component: lazy(() => import("./format-convert")),
+  },
 ];
 
 export function getToolBySlug(slug: string): ToolMeta | undefined {
