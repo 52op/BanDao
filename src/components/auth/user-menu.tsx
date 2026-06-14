@@ -41,11 +41,13 @@ export function UserMenu() {
   const [user, setUser] = useState<User | null>(null);
   const [open, setOpen] = useState(false);
 
-  useEffect(() => {
+  const checkLogin = useCallback(() => {
     const token = getToken();
-    if (!token) return;
+    if (!token) {
+      setUser(null);
+      return;
+    }
 
-    // SSO 模式：调 GoAuth /api/auth/me 检查登录
     fetch(`${SSO_URL}/api/auth/me`, {
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -54,16 +56,27 @@ export function UserMenu() {
         if (json?.data) {
           const data = json.data;
           setUser(data);
-          // 同步 token（GoAuth 返回的可能已刷新）
           if (data.token && data.token !== token) {
             setToken(data.token);
           }
         } else {
           clearToken();
+          setUser(null);
         }
       })
-      .catch(() => clearToken());
+      .catch(() => {
+        clearToken();
+        setUser(null);
+      });
   }, []);
+
+  useEffect(() => {
+    checkLogin();
+    // 监听 token 变化（SSO 回调存入 token 后通知）
+    const onAuthUpdated = () => checkLogin();
+    window.addEventListener("auth-updated", onAuthUpdated);
+    return () => window.removeEventListener("auth-updated", onAuthUpdated);
+  }, [checkLogin]);
 
   const handleLogout = useCallback(() => {
     clearToken();

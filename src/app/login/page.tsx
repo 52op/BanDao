@@ -18,6 +18,7 @@ function LoginForm() {
     const token = searchParams.get("token");
     if (token) {
       localStorage.setItem(TOKEN_KEY, token);
+      window.dispatchEvent(new Event("auth-updated"));
       // 清除 URL 中的 token 参数
       const url = new URL(window.location.href);
       url.searchParams.delete("token");

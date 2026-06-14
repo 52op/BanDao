@@ -18,6 +18,7 @@ export default function Home() {
     const ssoToken = params.get("token");
     if (ssoToken) {
       localStorage.setItem(TOKEN_KEY, ssoToken);
+      window.dispatchEvent(new Event("auth-updated"));
       // 清除 URL 中的 token 参数
       params.delete("token");
       const newSearch = params.toString();
