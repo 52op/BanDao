@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Wrench, Users, BarChart3, TrendingUp } from "lucide-react";
+import { adminFetch } from "@/lib/admin-client";
 
 interface Stats {
   total_count: number;
@@ -16,7 +17,7 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
 
   useEffect(() => {
-    fetch("/api/admin/stats")
+    adminFetch("/api/admin/stats")
       .then((res) => (res.ok ? res.json() : null))
       .then((json) => {
         if (json?.code === 0) setStats(json.data);

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus, Trash2, Loader2 } from "lucide-react";
+import { adminFetch } from "@/lib/admin-client";
 
 interface Category {
   id: number;
@@ -22,7 +23,7 @@ export default function AdminCategoriesPage() {
   const [creating, setCreating] = useState(false);
 
   const fetchCategories = useCallback(async () => {
-    const res = await fetch("/api/admin/categories");
+    const res = await adminFetch("/api/admin/categories");
     if (res.ok) {
       const json = await res.json();
       if (json.code === 0) setCategories(json.data);
@@ -37,7 +38,7 @@ export default function AdminCategoriesPage() {
   const handleCreate = async () => {
     if (!newSlug || !newName) return;
     setCreating(true);
-    await fetch("/api/admin/categories", {
+    await adminFetch("/api/admin/categories", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ slug: newSlug, name: newName, sort_order: categories.length }),
@@ -49,7 +50,7 @@ export default function AdminCategoriesPage() {
   };
 
   const handleToggle = async (id: number, enabled: boolean) => {
-    await fetch(`/api/admin/categories?id=${id}`, {
+    await adminFetch(`/api/admin/categories?id=${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ enabled }),
@@ -61,7 +62,7 @@ export default function AdminCategoriesPage() {
 
   const handleDelete = async (id: number) => {
     if (!confirm("确定删除此分类？")) return;
-    await fetch(`/api/admin/categories?id=${id}`, { method: "DELETE" });
+    await adminFetch(`/api/admin/categories?id=${id}`, { method: "DELETE" });
     fetchCategories();
   };
 

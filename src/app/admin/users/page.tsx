@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
+import { adminFetch } from "@/lib/admin-client";
 
 interface User {
   id: number;
@@ -21,7 +22,7 @@ export default function AdminUsersPage() {
   const [saving, setSaving] = useState<number | null>(null);
 
   const fetchUsers = useCallback(async () => {
-    const res = await fetch("/api/admin/users");
+    const res = await adminFetch("/api/admin/users");
     if (res.ok) {
       const json = await res.json();
       if (json.code === 0) setUsers(json.data);
@@ -35,7 +36,7 @@ export default function AdminUsersPage() {
 
   const handleRoleChange = async (id: number, role: string) => {
     setSaving(id);
-    await fetch(`/api/admin/users?id=${id}`, {
+    await adminFetch(`/api/admin/users?id=${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ role }),
@@ -48,7 +49,7 @@ export default function AdminUsersPage() {
 
   const handleUnlockToggle = async (id: number, is_unlocked: boolean) => {
     setSaving(id);
-    await fetch(`/api/admin/users?id=${id}`, {
+    await adminFetch(`/api/admin/users?id=${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ is_unlocked }),

@@ -1,38 +1,52 @@
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { AdminSidebar } from "./admin-sidebar";
+import { Loader2 } from "lucide-react";
 
-const SESSION_COOKIE = "bandao_session";
+const SSO_URL = process.env.NEXT_PUBLIC_GOAUTH_URL || "https://auth.it0731.cn";
+const TOKEN_KEY = "bandao_token";
 
-async function getSessionUser() {
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get(SESSION_COOKIE);
-  if (!sessionCookie?.value) return null;
-
-  try {
-    // Edge 兼容的 base64 解码（支持 UTF-8）
-    const binary = atob(sessionCookie.value);
-    const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
-    const payload = JSON.parse(new TextDecoder().decode(bytes));
-    if (!payload?.id) return null;
-    return payload;
-  } catch {
-    return null;
-  }
-}
-
-export default async function AdminLayout({
+export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const user = await getSessionUser();
+  const router = useRouter();
+  const [authorized, setAuthorized] = useState(false);
 
-  if (!user) {
-    redirect("/login");
-  }
-  if (user.role !== "admin") {
-    redirect("/");
+  useEffect(() => {
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (!token) {
+      router.replace("/login");
+      return;
+    }
+
+    // 验证 token 并检查 admin 角色
+    fetch(`${SSO_URL}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (json?.data?.role === "admin") {
+          setAuthorized(true);
+        } else {
+          router.replace("/");
+        }
+      })
+      .catch(() => {
+        localStorage.removeItem(TOKEN_KEY);
+        router.replace("/login");
+      });
+  }, [router]);
+
+  if (!authorized) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
   }
 
   return (

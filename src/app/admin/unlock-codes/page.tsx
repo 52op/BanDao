@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus, Copy, Check, Loader2 } from "lucide-react";
+import { adminFetch } from "@/lib/admin-client";
 
 interface UnlockCode {
   id: number;
@@ -23,7 +24,7 @@ export default function AdminUnlockCodesPage() {
   const [copied, setCopied] = useState<string | null>(null);
 
   const fetchCodes = useCallback(async () => {
-    const res = await fetch("/api/admin/unlock-codes");
+    const res = await adminFetch("/api/admin/unlock-codes");
     if (res.ok) {
       const json = await res.json();
       if (json.code === 0) setCodes(json.data);
@@ -37,7 +38,7 @@ export default function AdminUnlockCodesPage() {
 
   const handleCreate = async () => {
     setCreating(true);
-    const res = await fetch("/api/admin/unlock-codes", {
+    const res = await adminFetch("/api/admin/unlock-codes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ count }),

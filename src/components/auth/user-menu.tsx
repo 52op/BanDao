@@ -5,12 +5,36 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { LogOut, User, Shield } from "lucide-react";
 
+const SSO_URL = process.env.NEXT_PUBLIC_GOAUTH_URL || "https://auth.it0731.cn";
+const TOKEN_KEY = "bandao_token";
+
 interface User {
-  id: number;
+  user_id: number;
+  username: string;
   email: string;
-  name: string;
   role: string;
   avatar_url?: string;
+  token?: string;
+}
+
+function getToken(): string | null {
+  try {
+    return localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function setToken(token: string) {
+  localStorage.setItem(TOKEN_KEY, token);
+}
+
+function clearToken() {
+  localStorage.removeItem(TOKEN_KEY);
+}
+
+export function getSSOToken() {
+  return getToken();
 }
 
 export function UserMenu() {
@@ -18,19 +42,35 @@ export function UserMenu() {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    fetch("/api/auth/me")
+    const token = getToken();
+    if (!token) return;
+
+    // SSO 模式：调 GoAuth /api/auth/me 检查登录
+    fetch(`${SSO_URL}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
       .then((res) => (res.ok ? res.json() : null))
       .then((json) => {
-        if (json?.code === 0) setUser(json.data);
+        if (json?.data) {
+          const data = json.data;
+          setUser(data);
+          // 同步 token（GoAuth 返回的可能已刷新）
+          if (data.token && data.token !== token) {
+            setToken(data.token);
+          }
+        } else {
+          clearToken();
+        }
       })
-      .catch(() => {});
+      .catch(() => clearToken());
   }, []);
 
-  const handleLogout = useCallback(async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
+  const handleLogout = useCallback(() => {
+    clearToken();
     setUser(null);
     setOpen(false);
-    window.location.href = "/";
+    // 跳转 GoAuth 退出，再回调回来
+    window.location.href = `${SSO_URL}/logout?redirect=${encodeURIComponent(window.location.origin + "/login")}`;
   }, []);
 
   if (!user) {
@@ -58,11 +98,11 @@ export function UserMenu() {
           />
         ) : (
           <div className="size-6 rounded-full bg-muted flex items-center justify-center text-xs font-medium">
-            {user.name?.[0] || user.email?.[0] || "?"}
+            {user.username?.[0] || user.email?.[0] || "?"}
           </div>
         )}
         <span className="hidden sm:inline text-sm max-w-24 truncate">
-          {user.name || user.email}
+          {user.username || user.email}
         </span>
       </button>
 
@@ -71,7 +111,7 @@ export function UserMenu() {
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div className="absolute right-0 top-full mt-1 z-50 w-48 rounded-lg border bg-background shadow-lg py-1">
             <div className="px-3 py-2 border-b">
-              <p className="text-sm font-medium truncate">{user.name}</p>
+              <p className="text-sm font-medium truncate">{user.username}</p>
               <p className="text-xs text-muted-foreground truncate">
                 {user.email}
               </p>

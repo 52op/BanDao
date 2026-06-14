@@ -6,11 +6,28 @@ import { Shield } from "lucide-react";
 import { fetchTools, fetchCategories, type ToolItem, type CategoryItem } from "@/lib/api";
 import { getIcon } from "@/lib/icon-map";
 
+const TOKEN_KEY = "bandao_token";
+
 export default function Home() {
   const [tools, setTools] = useState<ToolItem[]>([]);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
 
   useEffect(() => {
+    // 检测 SSO 回调带回来的 ?token= 参数
+    const params = new URLSearchParams(window.location.search);
+    const ssoToken = params.get("token");
+    if (ssoToken) {
+      localStorage.setItem(TOKEN_KEY, ssoToken);
+      // 清除 URL 中的 token 参数
+      params.delete("token");
+      const newSearch = params.toString();
+      window.history.replaceState(
+        {},
+        "",
+        window.location.pathname + (newSearch ? `?${newSearch}` : "")
+      );
+    }
+
     fetchTools().then(setTools);
     fetchCategories().then(setCategories);
   }, []);

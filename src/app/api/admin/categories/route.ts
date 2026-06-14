@@ -1,8 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { proxyToBackend, requireAdmin } from "@/lib/admin-api";
 
-export async function GET() {
-  const admin = await requireAdmin();
+export async function GET(request: Request) {
+  const admin = requireAdmin(request);
   if (!admin) {
     return NextResponse.json({ code: 401, message: "未授权" }, { status: 401 });
   }
@@ -13,7 +13,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const admin = await requireAdmin();
+  const admin = requireAdmin(request);
   if (!admin) {
     return NextResponse.json({ code: 401, message: "未授权" }, { status: 401 });
   }
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-  const admin = await requireAdmin();
+  const admin = requireAdmin(request);
   if (!admin) {
     return NextResponse.json({ code: 401, message: "未授权" }, { status: 401 });
   }
@@ -48,7 +48,7 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const admin = await requireAdmin();
+  const admin = requireAdmin(request);
   if (!admin) {
     return NextResponse.json({ code: 401, message: "未授权" }, { status: 401 });
   }

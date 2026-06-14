@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Save, Loader2 } from "lucide-react";
+import { adminFetch } from "@/lib/admin-client";
 
 export default function AdminSettingsPage() {
   const [settings, setSettings] = useState<Record<string, string>>({});
@@ -12,7 +13,7 @@ export default function AdminSettingsPage() {
   const [saving, setSaving] = useState(false);
 
   const fetchSettings = useCallback(async () => {
-    const res = await fetch("/api/admin/settings");
+    const res = await adminFetch("/api/admin/settings");
     if (res.ok) {
       const json = await res.json();
       if (json.code === 0) setSettings(json.data);
@@ -26,7 +27,7 @@ export default function AdminSettingsPage() {
 
   const handleSave = async () => {
     setSaving(true);
-    await fetch("/api/admin/settings", {
+    await adminFetch("/api/admin/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(settings),

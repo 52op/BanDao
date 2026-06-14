@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Save, Loader2 } from "lucide-react";
+import { adminFetch } from "@/lib/admin-client";
 
 interface Tool {
   id: number;
@@ -25,7 +26,7 @@ export default function AdminToolsPage() {
   const [saving, setSaving] = useState<string | null>(null);
 
   const fetchTools = useCallback(async () => {
-    const res = await fetch("/api/admin/tools");
+    const res = await adminFetch("/api/admin/tools");
     if (res.ok) {
       const json = await res.json();
       if (json.code === 0) setTools(json.data);
@@ -39,7 +40,7 @@ export default function AdminToolsPage() {
 
   const handleToggle = async (slug: string, field: "enabled" | "needs_unlock", value: boolean) => {
     setSaving(slug);
-    await fetch(`/api/admin/tools?slug=${slug}`, {
+    await adminFetch(`/api/admin/tools?slug=${slug}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ [field]: value }),
@@ -52,7 +53,7 @@ export default function AdminToolsPage() {
 
   const handleUpdate = async (slug: string, data: Partial<Tool>) => {
     setSaving(slug);
-    await fetch(`/api/admin/tools?slug=${slug}`, {
+    await adminFetch(`/api/admin/tools?slug=${slug}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
