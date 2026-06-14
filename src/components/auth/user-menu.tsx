@@ -4,8 +4,15 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { LogOut, User, Shield } from "lucide-react";
+import { md5 } from "@/lib/md5";
 
 const SSO_URL = process.env.NEXT_PUBLIC_GOAUTH_URL || "https://auth.it0731.cn";
+
+function getAvatarUrl(user: User): string {
+  if (user.avatar_url) return user.avatar_url;
+  const hash = md5(user.email.trim().toLowerCase());
+  return `https://cn.cravatar.com/avatar/${hash}?s=80&d=monsterid`;
+}
 const TOKEN_KEY = "bandao_token";
 
 interface User {
@@ -103,17 +110,11 @@ export function UserMenu() {
         onClick={() => setOpen(!open)}
         className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-muted/50 transition-colors"
       >
-        {user.avatar_url ? (
-          <img
-            src={user.avatar_url}
-            alt=""
-            className="size-6 rounded-full object-cover"
-          />
-        ) : (
-          <div className="size-6 rounded-full bg-muted flex items-center justify-center text-xs font-medium">
-            {user.username?.[0] || user.email?.[0] || "?"}
-          </div>
-        )}
+        <img
+          src={getAvatarUrl(user)}
+          alt=""
+          className="size-6 rounded-full object-cover"
+        />
         <span className="hidden sm:inline text-sm max-w-24 truncate">
           {user.username || user.email}
         </span>
@@ -123,11 +124,18 @@ export function UserMenu() {
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div className="absolute right-0 top-full mt-1 z-50 w-48 rounded-lg border bg-background shadow-lg py-1">
-            <div className="px-3 py-2 border-b">
-              <p className="text-sm font-medium truncate">{user.username}</p>
-              <p className="text-xs text-muted-foreground truncate">
-                {user.email}
-              </p>
+            <div className="px-3 py-2 border-b flex items-center gap-2">
+              <img
+                src={getAvatarUrl(user)}
+                alt=""
+                className="size-8 rounded-full object-cover"
+              />
+              <div className="min-w-0">
+                <p className="text-sm font-medium truncate">{user.username}</p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {user.email}
+                </p>
+              </div>
             </div>
             {user.role === "admin" && (
               <Link
