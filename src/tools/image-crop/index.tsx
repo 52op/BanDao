@@ -35,17 +35,8 @@ const ASPECT_PRESETS = [
   { label: "5:7", value: 5 / 7 },
 ];
 
-const ZOOM_LEVELS: { label: string; value: Zoom }[] = [
-  { label: "25%", value: 0.25 },
-  { label: "50%", value: 0.5 },
-  { label: "75%", value: 0.75 },
-  { label: "适合", value: "fit" },
-  { label: "100%", value: 1 },
-  { label: "150%", value: 1.5 },
-  { label: "200%", value: 2 },
-  { label: "300%", value: 3 },
-  { label: "400%", value: 4 },
-];
+const ZOOM_MIN = 10;
+const ZOOM_MAX = 500;
 
 const OUTPUT_EXT: Record<string, string> = {
   png: "png", jpeg: "jpg", webp: "webp",
@@ -88,9 +79,7 @@ export default function ImageCropTool() {
 
   const activeFile = files[activeIndex];
   const displaySrc = rotatedSrc || activeFile?.previewUrl || null;
-  const currentLabel = zoom === "fit" ? "适合"
-    : zoom >= 1 ? `${Math.round(zoom * 100)}%`
-    : `${Math.round(zoom * 100)}%`;
+  const sliderValue = Math.round((zoom === "fit" ? fitScale : zoom) * 100);
 
   useEffect(() => {
     setRotation(0);
@@ -130,6 +119,27 @@ export default function ImageCropTool() {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [showAspectRatio]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const handler = (e: WheelEvent) => {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.1 : 0.1;
+      setZoom((prev) => {
+        if (prev === "fit") {
+          const base = Math.round(fitScale * 100);
+          return Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Math.round((base + delta * 100) / 5) * 5)) / 100;
+        }
+        const current = Math.round(prev * 100);
+        const next = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, current + (e.deltaY > 0 ? -5 : 5)));
+        return next / 100;
+      });
+    };
+    el.addEventListener("wheel", handler, { passive: false });
+    return () => el.removeEventListener("wheel", handler);
+  }, [fitScale]);
 
   const displayScale = zoom === "fit" ? fitScale : zoom;
   const displayW = originalSize ? Math.round(originalSize.w * displayScale) : undefined;
@@ -464,37 +474,48 @@ export default function ImageCropTool() {
 
             <div className="ml-auto flex items-center gap-2">
               {/* 缩放控制 */}
-              <div className="flex items-center gap-1 bg-muted/40 rounded-lg px-1 py-0.5">
+              <div className="flex items-center gap-1.5">
                 <button
-                  onClick={() => {
-                    const idx = ZOOM_LEVELS.findIndex((z) => z.value === zoom);
-                    if (idx > 0) setZoom(ZOOM_LEVELS[idx - 1].value);
-                  }}
-                  disabled={zoom === ZOOM_LEVELS[0].value}
+                  onClick={() => setZoom((prev) => {
+                    if (prev === "fit") return Math.max(ZOOM_MIN, Math.round(fitScale * 100) - 10) / 100;
+                    return Math.max(ZOOM_MIN, Math.round(prev * 100) - 10) / 100;
+                  })}
+                  disabled={zoom !== "fit" && Math.round(zoom * 100) <= ZOOM_MIN}
                   className="p-0.5 rounded hover:bg-background/50 disabled:opacity-30"
                 >
                   <ZoomOut className="size-3.5" />
                 </button>
-                <span className="text-xs text-muted-foreground w-10 text-center tabular-nums cursor-default select-none">
-                  {currentLabel}
-                </span>
-                <button
-                  onClick={() => {
-                    const idx = ZOOM_LEVELS.findIndex((z) => z.value === zoom);
-                    if (idx < ZOOM_LEVELS.length - 1) setZoom(ZOOM_LEVELS[idx + 1].value);
+                <input
+                  type="range"
+                  min={ZOOM_MIN}
+                  max={ZOOM_MAX}
+                  value={sliderValue}
+                  onChange={(e) => {
+                    const v = parseInt(e.target.value);
+                    if (zoom === "fit" && Math.abs(v - Math.round(fitScale * 100)) < 2) return;
+                    setZoom(v / 100);
                   }}
-                  disabled={zoom === ZOOM_LEVELS[ZOOM_LEVELS.length - 1].value}
+                  className="w-20 h-1 accent-foreground cursor-pointer"
+                />
+                <button
+                  onClick={() => setZoom((prev) => {
+                    if (prev === "fit") return Math.min(ZOOM_MAX, Math.round(fitScale * 100) + 10) / 100;
+                    return Math.min(ZOOM_MAX, Math.round(prev * 100) + 10) / 100;
+                  })}
+                  disabled={zoom !== "fit" && Math.round(zoom * 100) >= ZOOM_MAX}
                   className="p-0.5 rounded hover:bg-background/50 disabled:opacity-30"
                 >
                   <ZoomIn className="size-3.5" />
                 </button>
+                <span className="text-xs text-muted-foreground w-10 text-center tabular-nums cursor-default select-none min-w-10">
+                  {zoom === "fit" ? "适合" : `${Math.round(zoom * 100)}%`}
+                </span>
                 {zoom !== "fit" && (
                   <button
                     onClick={() => setZoom("fit")}
-                    className="p-0.5 rounded hover:bg-background/50 ml-0.5"
-                    title="适合窗口"
+                    className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 whitespace-nowrap"
                   >
-                    <ChevronDown className="size-3" />
+                    重置
                   </button>
                 )}
               </div>
@@ -568,7 +589,7 @@ export default function ImageCropTool() {
           <div
             ref={containerRef}
             className="rounded-lg border bg-muted/10 overflow-auto"
-            style={{ height: "calc(100vh - 340px)", minHeight: 300 }}
+            style={{ height: "calc(100vh - 260px)", minHeight: 300 }}
           >
             <div className="flex items-start justify-center p-1 min-h-full" style={{ width: displayW && zoom !== "fit" ? displayW : "100%" }}>
               {displaySrc ? (
