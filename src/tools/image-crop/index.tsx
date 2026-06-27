@@ -548,7 +548,7 @@ export default function ImageCropTool() {
             className="rounded-lg border bg-muted/10 overflow-auto"
             style={{ height: "calc(100vh - 340px)", minHeight: 300 }}
           >
-            <div className="flex items-start justify-center p-1 min-h-full w-min">
+            <div className="flex items-start justify-center p-1 min-h-full" style={{ width: displayW && zoom !== "fit" ? displayW : "100%" }}>
               {displaySrc ? (
                 mode === "crop" ? (
                   <ReactCrop
