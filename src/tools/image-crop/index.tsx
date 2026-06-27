@@ -19,8 +19,10 @@ import {
   RefreshCw,
   RotateCw,
   RotateCcw,
-  ZoomIn,
   Check,
+  ZoomIn,
+  ZoomOut,
+  Maximize,
 } from "lucide-react";
 
 type Mode = "crop" | "resize";
@@ -33,6 +35,8 @@ const ASPECT_PRESETS = [
   { label: "3:2", value: 3 / 2 },
   { label: "5:7", value: 5 / 7 },
 ];
+
+const ZOOM_STEPS = [0.5, 0.75, 1, 1.5, 2, 3, 4];
 
 const OUTPUT_EXT: Record<string, string> = {
   png: "png", jpeg: "jpg", webp: "webp",
@@ -64,20 +68,20 @@ export default function ImageCropTool() {
   const [aspectRatio, setAspectRatio] = useState<number | undefined>(undefined);
   const [outputFormat, setOutputFormat] = useState<"png" | "jpeg" | "webp">("png");
   const [quality, setQuality] = useState(90);
-  const [magnify, setMagnify] = useState(false);
-  const [magnifyPos, setMagnifyPos] = useState({ x: 0, y: 0 });
+  const [zoomIndex, setZoomIndex] = useState(2);
   const imgRef = useRef<HTMLImageElement | null>(null);
-  const cropContainerRef = useRef<HTMLDivElement>(null);
   const rotatedUrlRef = useRef<string | null>(null);
 
   const activeFile = files[activeIndex];
   const displaySrc = rotatedSrc || activeFile?.previewUrl || null;
+  const zoom = ZOOM_STEPS[zoomIndex];
 
   useEffect(() => {
     setRotation(0);
     setCrop(undefined);
     setCompletedCrop(null);
     setAspectRatio(undefined);
+    setZoomIndex(2);
     if (rotatedUrlRef.current) {
       URL.revokeObjectURL(rotatedUrlRef.current);
       rotatedUrlRef.current = null;
@@ -242,7 +246,6 @@ export default function ImageCropTool() {
     [mode, rotation, completedCrop, resizeWidth, resizeHeight, outputFormat, quality]
   );
 
-  // Apply current editing (crop/resize/rotate) to the active image
   const handleApply = useCallback(async () => {
     if (!activeFile?.previewUrl) return;
     setApplying(true);
@@ -263,7 +266,6 @@ export default function ImageCropTool() {
     setApplying(false);
   }, [activeFile, activeIndex, process]);
 
-  // Rotate without applying (just for preview)
   const canApply = mode === "crop" ? !!completedCrop
     : mode === "resize" ? true
     : false;
@@ -315,18 +317,6 @@ export default function ImageCropTool() {
 
     setLoading(false);
   }, [files, process, outputFormat]);
-
-  const handlePreviewMouseMove = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      if (!cropContainerRef.current) return;
-      const rect = cropContainerRef.current.getBoundingClientRect();
-      setMagnifyPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-    },
-    []
-  );
-
-  const magnifySize = 180;
-  const magnifyZoom = 2.5;
 
   return (
     <div className="space-y-6">
@@ -455,31 +445,17 @@ export default function ImageCropTool() {
               </div>
             )}
 
-            <div className="flex gap-2">
-              <Button
-                onClick={handleApply}
-                disabled={!canApply || applying}
-                variant="default"
-                className="flex-1"
-              >
-                {applying ? (
-                  <><Loader2 className="mr-2 size-4 animate-spin" /> 应用中...</>
-                ) : (
-                  <><Check className="mr-2 size-4" /> 应用{ mode === "crop" ? "裁剪" : "调整大小" }</>
-                )}
-              </Button>
-              {(rotation !== 0) && (
-                <Button
-                  onClick={() => handleApply()}
-                  disabled={applying}
-                  variant="secondary"
-                  size="icon"
-                  title="应用旋转"
-                >
-                  <Check className="size-4" />
-                </Button>
+            <Button
+              onClick={handleApply}
+              disabled={!canApply || applying}
+              className="w-full"
+            >
+              {applying ? (
+                <><Loader2 className="mr-2 size-4 animate-spin" /> 应用中...</>
+              ) : (
+                <><Check className="mr-2 size-4" /> 应用{ mode === "crop" ? "裁剪" : "调整大小" }</>
               )}
-            </div>
+            </Button>
 
             <div className="space-y-2">
               <Label>输出格式</Label>
@@ -549,12 +525,48 @@ export default function ImageCropTool() {
               </div>
             )}
 
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                {originalSize && `${originalSize.w} × ${originalSize.h} px`}
+              </p>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setZoomIndex((i) => Math.max(0, i - 1))}
+                  disabled={zoomIndex === 0}
+                  className="p-1 rounded hover:bg-muted/50 disabled:opacity-30"
+                  title="缩小"
+                >
+                  <ZoomOut className="size-4" />
+                </button>
+                <span className="text-xs text-muted-foreground w-10 text-center tabular-nums">
+                  {zoom === 1 ? "适应" : `${Math.round(zoom * 100)}%`}
+                </span>
+                <button
+                  onClick={() => setZoomIndex((i) => Math.min(ZOOM_STEPS.length - 1, i + 1))}
+                  disabled={zoomIndex === ZOOM_STEPS.length - 1}
+                  className="p-1 rounded hover:bg-muted/50 disabled:opacity-30"
+                  title="放大"
+                >
+                  <ZoomIn className="size-4" />
+                </button>
+                {zoom !== 1 && (
+                  <button
+                    onClick={() => setZoomIndex(2)}
+                    className="p-1 rounded hover:bg-muted/50"
+                    title="适应窗口"
+                  >
+                    <Maximize className="size-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+
             <div
-              ref={cropContainerRef}
-              className="relative rounded-lg border bg-muted/30 p-2 flex items-center justify-center overflow-auto cursor-crosshair"
-              onMouseEnter={() => setMagnify(true)}
-              onMouseLeave={() => setMagnify(false)}
-              onMouseMove={handlePreviewMouseMove}
+              className="rounded-lg border bg-muted/30 p-2 flex items-center justify-center overflow-auto"
+              style={{
+                maxHeight: zoom === 1 ? "50vh" : `${50 * zoom}vh`,
+                minHeight: 200,
+              }}
             >
               {displaySrc ? (
                 mode === "crop" ? (
@@ -567,7 +579,13 @@ export default function ImageCropTool() {
                     <img
                       src={displaySrc}
                       alt="裁剪预览"
-                      className="max-w-full max-h-[50vh] object-contain"
+                      className="max-w-full object-contain"
+                      style={{
+                        maxHeight: zoom === 1 ? "50vh" : "none",
+                        width: zoom === 1 ? "100%" : `${zoom * 100}%`,
+                        maxWidth: zoom === 1 ? "100%" : "none",
+                        height: "auto",
+                      }}
                       onLoad={handleImageLoad}
                     />
                   </ReactCrop>
@@ -575,54 +593,19 @@ export default function ImageCropTool() {
                   <img
                     src={displaySrc}
                     alt="调整预览"
-                    className="max-w-full max-h-[50vh] object-contain"
+                    className="max-w-full object-contain"
+                    style={{
+                      maxHeight: zoom === 1 ? "50vh" : "none",
+                      width: zoom === 1 ? "100%" : `${zoom * 100}%`,
+                      maxWidth: zoom === 1 ? "100%" : "none",
+                      height: "auto",
+                    }}
                     onLoad={handleImageLoad}
                   />
                 )
               ) : (
                 <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">
                   请先上传图片
-                </div>
-              )}
-
-              <div className="absolute bottom-3 right-3 flex items-center gap-1 text-[10px] text-muted-foreground/50 bg-background/80 backdrop-blur-sm rounded px-1.5 py-0.5">
-                <ZoomIn className="size-3" />
-                悬停放大
-              </div>
-
-              {magnify && displaySrc && (
-                <div
-                  className="pointer-events-none hidden lg:block absolute z-50 rounded-full border-2 border-foreground/20 shadow-xl overflow-hidden bg-background"
-                  style={{
-                    width: magnifySize,
-                    height: magnifySize,
-                    left: magnifyPos.x - magnifySize / 2,
-                    top: magnifyPos.y - magnifySize / 2,
-                  }}
-                >
-                  <canvas
-                    width={magnifySize}
-                    height={magnifySize}
-                    ref={(el) => {
-                      if (!el || !cropContainerRef.current) return;
-                      const ctx = el.getContext("2d");
-                      const previewImg = cropContainerRef.current.querySelector("img");
-                      if (!ctx || !previewImg) return;
-                      const sx = (magnifyPos.x / cropContainerRef.current.offsetWidth) * previewImg.naturalWidth;
-                      const sy = (magnifyPos.y / cropContainerRef.current.offsetHeight) * previewImg.naturalHeight;
-                      const sw = previewImg.naturalWidth / magnifyZoom;
-                      const sh = previewImg.naturalHeight / magnifyZoom;
-                      ctx.clearRect(0, 0, magnifySize, magnifySize);
-                      ctx.drawImage(
-                        previewImg,
-                        Math.max(0, sx - sw / 2),
-                        Math.max(0, sy - sh / 2),
-                        sw, sh,
-                        0, 0,
-                        magnifySize, magnifySize
-                      );
-                    }}
-                  />
                 </div>
               )}
             </div>
