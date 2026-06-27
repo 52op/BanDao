@@ -9,20 +9,19 @@ import {
   type BatchFileItem,
 } from "@/components/tool/batch-file-upload";
 import { downloadBlob } from "@/lib/download";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import {
   Crop as CropIcon,
   Download,
   Loader2,
-  RefreshCw,
   RotateCw,
   RotateCcw,
   Check,
   ZoomIn,
   ZoomOut,
   Maximize,
+  ChevronDown,
 } from "lucide-react";
 
 type Mode = "crop" | "resize";
@@ -69,12 +68,14 @@ export default function ImageCropTool() {
   const [outputFormat, setOutputFormat] = useState<"png" | "jpeg" | "webp">("png");
   const [quality, setQuality] = useState(90);
   const [zoomIndex, setZoomIndex] = useState(2);
+  const [showOutput, setShowOutput] = useState(false);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const rotatedUrlRef = useRef<string | null>(null);
 
   const activeFile = files[activeIndex];
   const displaySrc = rotatedSrc || activeFile?.previewUrl || null;
   const zoom = ZOOM_STEPS[zoomIndex];
+  const isFit = zoom === 1;
 
   useEffect(() => {
     setRotation(0);
@@ -82,6 +83,7 @@ export default function ImageCropTool() {
     setCompletedCrop(null);
     setAspectRatio(undefined);
     setZoomIndex(2);
+    setShowOutput(false);
     if (rotatedUrlRef.current) {
       URL.revokeObjectURL(rotatedUrlRef.current);
       rotatedUrlRef.current = null;
@@ -266,9 +268,7 @@ export default function ImageCropTool() {
     setApplying(false);
   }, [activeFile, activeIndex, process]);
 
-  const canApply = mode === "crop" ? !!completedCrop
-    : mode === "resize" ? true
-    : false;
+  const canApply = mode === "crop" ? !!completedCrop : true;
 
   const handleDownload = useCallback(async () => {
     if (files.length === 0) return;
@@ -330,285 +330,247 @@ export default function ImageCropTool() {
       />
 
       {files.length > 0 && (
-        <div className="grid gap-6 lg:grid-cols-2">
-          <div className="space-y-4 rounded-lg border p-5">
-            <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex flex-col gap-3">
+          {/* 工具栏 */}
+          <div className="flex items-center gap-1.5 flex-wrap rounded-lg border bg-muted/20 px-3 py-2">
+            <div className="flex items-center gap-1">
               <Button
                 size="sm"
-                variant={mode === "crop" ? "default" : "outline"}
+                variant={mode === "crop" ? "default" : "ghost"}
                 onClick={() => setMode("crop")}
               >
-                <CropIcon className="mr-1.5 size-3.5" /> 裁剪
+                <CropIcon className="size-3.5" /> 裁剪
               </Button>
               <Button
                 size="sm"
-                variant={mode === "resize" ? "default" : "outline"}
+                variant={mode === "resize" ? "default" : "ghost"}
                 onClick={() => setMode("resize")}
               >
-                <RefreshCw className="mr-1.5 size-3.5" /> 调整大小
+                <Maximize className="size-3.5" /> 缩放
               </Button>
-              <div className="ml-auto flex gap-1">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleRotate(-90)}
-                  title="左旋 90°"
-                >
-                  <RotateCcw className="size-3.5" />
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleRotate(90)}
-                  title="右旋 90°"
-                >
-                  <RotateCw className="size-3.5" />
-                </Button>
-              </div>
             </div>
 
-            {mode === "crop" && (
-              <div className="space-y-2">
-                <Label>裁剪比例</Label>
-                <div className="flex gap-1.5 flex-wrap">
+            <Separator orientation="vertical" className="h-5 mx-1" />
+
+            <div className="flex items-center gap-1">
+              <Button size="sm" variant="ghost" onClick={() => handleRotate(-90)} title="左旋 90°">
+                <RotateCcw className="size-3.5" />
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => handleRotate(90)} title="右旋 90°">
+                <RotateCw className="size-3.5" />
+              </Button>
+            </div>
+
+            <Separator orientation="vertical" className="h-5 mx-1" />
+
+            <div className="flex items-center gap-1.5">
+              {mode === "crop" && (
+                <div className="flex items-center gap-1">
                   {ASPECT_PRESETS.map((a) => (
                     <button
                       key={a.label}
                       onClick={() => setAspectRatio(a.value)}
-                      className={`px-2.5 py-1 rounded-md text-xs border transition-colors ${
+                      className={`px-2 py-0.5 rounded text-xs border transition-colors ${
                         aspectRatio === a.value
                           ? "border-foreground bg-accent font-medium"
-                          : "border-input text-muted-foreground hover:border-muted-foreground/40"
+                          : "border-transparent text-muted-foreground hover:border-muted-foreground/30"
                       }`}
                     >
                       {a.label}
                     </button>
                   ))}
                 </div>
-              </div>
-            )}
-
-            {mode === "resize" && (
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label>宽度 (px)</Label>
-                    <Input
-                      type="number"
-                      value={resizeWidth}
-                      onChange={(e) => {
-                        const w = parseInt(e.target.value) || 0;
-                        setResizeWidth(w);
-                        if (lockRatio && originalSize) {
-                          setResizeHeight(
-                            Math.round((w / originalSize.w) * originalSize.h)
-                          );
-                        }
-                      }}
-                      min={1}
-                      max={10000}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label>高度 (px)</Label>
-                    <Input
-                      type="number"
-                      value={resizeHeight}
-                      onChange={(e) => {
-                        const h = parseInt(e.target.value) || 0;
-                        setResizeHeight(h);
-                        if (lockRatio && originalSize) {
-                          setResizeWidth(
-                            Math.round((h / originalSize.h) * originalSize.w)
-                          );
-                        }
-                      }}
-                      min={1}
-                      max={10000}
-                    />
-                  </div>
-                </div>
-                <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={lockRatio}
-                    onChange={(e) => setLockRatio(e.target.checked)}
-                    className="rounded border-border"
-                  />
-                  锁定宽高比
-                </label>
-                {originalSize && (
-                  <p className="text-xs text-muted-foreground">
-                    原始尺寸：{originalSize.w} × {originalSize.h} px
-                  </p>
-                )}
-              </div>
-            )}
-
-            <Button
-              onClick={handleApply}
-              disabled={!canApply || applying}
-              className="w-full"
-            >
-              {applying ? (
-                <><Loader2 className="mr-2 size-4 animate-spin" /> 应用中...</>
-              ) : (
-                <><Check className="mr-2 size-4" /> 应用{ mode === "crop" ? "裁剪" : "调整大小" }</>
               )}
-            </Button>
-
-            <div className="space-y-2">
-              <Label>输出格式</Label>
-              <div className="flex items-center gap-3">
-                <select
-                  value={outputFormat}
-                  onChange={(e) => setOutputFormat(e.target.value as "png" | "jpeg" | "webp")}
-                  className="h-8 rounded border border-input bg-transparent px-2 text-sm"
-                >
-                  <option value="png">PNG</option>
-                  <option value="jpeg">JPEG</option>
-                  <option value="webp">WebP</option>
-                </select>
-                {outputFormat !== "png" && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground flex-1">
-                    <span className="text-xs whitespace-nowrap">质量</span>
+              {mode === "resize" && originalSize && (
+                <div className="flex items-center gap-2 text-sm">
+                  <input
+                    type="number"
+                    value={resizeWidth}
+                    onChange={(e) => {
+                      const w = parseInt(e.target.value) || 0;
+                      setResizeWidth(w);
+                      if (lockRatio) setResizeHeight(Math.round((w / originalSize.w) * originalSize.h));
+                    }}
+                    className="w-16 h-7 rounded border border-input bg-transparent px-1.5 text-xs text-center"
+                    min={1}
+                  />
+                  <span className="text-muted-foreground">×</span>
+                  <input
+                    type="number"
+                    value={resizeHeight}
+                    onChange={(e) => {
+                      const h = parseInt(e.target.value) || 0;
+                      setResizeHeight(h);
+                      if (lockRatio) setResizeWidth(Math.round((h / originalSize.h) * originalSize.w));
+                    }}
+                    className="w-16 h-7 rounded border border-input bg-transparent px-1.5 text-xs text-center"
+                    min={1}
+                  />
+                  <label className="flex items-center gap-1 text-xs text-muted-foreground cursor-pointer whitespace-nowrap">
                     <input
-                      type="range"
-                      min={10}
-                      max={100}
-                      value={quality}
-                      onChange={(e) => setQuality(parseInt(e.target.value))}
-                      className="flex-1 h-1 accent-foreground"
+                      type="checkbox"
+                      checked={lockRatio}
+                      onChange={(e) => setLockRatio(e.target.checked)}
                     />
-                    <span className="text-xs w-8 text-right">{quality}%</span>
-                  </div>
-                )}
-              </div>
+                    锁定
+                  </label>
+                </div>
+              )}
             </div>
 
-            <Button
-              onClick={handleDownload}
-              disabled={loading}
-              variant="outline"
-              className="w-full"
-            >
-              {loading ? (
-                <><Loader2 className="mr-2 size-4 animate-spin" /> 处理中...</>
-              ) : (
-                <><Download className="mr-2 size-4" /> 下载{files.length > 1 ? "全部" : ""}</>
-              )}
-            </Button>
+            <div className="ml-auto flex items-center gap-1">
+              <Button size="sm" onClick={handleApply} disabled={!canApply || applying}>
+                {applying ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
+                应用
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleDownload} disabled={loading}>
+                {loading ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
+                下载
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setShowOutput(!showOutput)} title="输出设置">
+                <ChevronDown className={`size-3.5 transition-transform ${showOutput ? "rotate-180" : ""}`} />
+              </Button>
+            </div>
           </div>
 
-          <div className="space-y-3">
-            {files.length > 1 && (
-              <div className="flex gap-2 overflow-x-auto pb-1">
-                {files.map((item, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setActiveIndex(i)}
-                    className={`shrink-0 size-14 rounded-md border-2 overflow-hidden transition-colors ${
-                      i === activeIndex
-                        ? "border-foreground"
-                        : "border-transparent hover:border-muted-foreground/30"
-                    }`}
-                  >
-                    {item.previewUrl && (
-                      <img
-                        src={item.previewUrl}
-                        alt=""
-                        className="size-full object-cover"
-                      />
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">
+          {/* 输出设置（可折叠） */}
+          {showOutput && (
+            <div className="flex items-center gap-3 rounded-lg border bg-muted/10 px-3 py-1.5 text-sm">
+              <select
+                value={outputFormat}
+                onChange={(e) => setOutputFormat(e.target.value as "png" | "jpeg" | "webp")}
+                className="h-7 rounded border border-input bg-transparent px-2 text-xs"
+              >
+                <option value="png">PNG</option>
+                <option value="jpeg">JPEG</option>
+                <option value="webp">WebP</option>
+              </select>
+              {outputFormat !== "png" && (
+                <div className="flex items-center gap-2 text-muted-foreground flex-1 max-w-48">
+                  <span className="text-xs">质量</span>
+                  <input
+                    type="range"
+                    min={10}
+                    max={100}
+                    value={quality}
+                    onChange={(e) => setQuality(parseInt(e.target.value))}
+                    className="flex-1 h-1 accent-foreground"
+                  />
+                  <span className="text-xs w-8 text-right tabular-nums">{quality}%</span>
+                </div>
+              )}
+              <span className="text-xs text-muted-foreground ml-auto">
                 {originalSize && `${originalSize.w} × ${originalSize.h} px`}
-              </p>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setZoomIndex((i) => Math.max(0, i - 1))}
-                  disabled={zoomIndex === 0}
-                  className="p-1 rounded hover:bg-muted/50 disabled:opacity-30"
-                  title="缩小"
-                >
-                  <ZoomOut className="size-4" />
-                </button>
-                <span className="text-xs text-muted-foreground w-10 text-center tabular-nums">
-                  {zoom === 1 ? "适应" : `${Math.round(zoom * 100)}%`}
-                </span>
-                <button
-                  onClick={() => setZoomIndex((i) => Math.min(ZOOM_STEPS.length - 1, i + 1))}
-                  disabled={zoomIndex === ZOOM_STEPS.length - 1}
-                  className="p-1 rounded hover:bg-muted/50 disabled:opacity-30"
-                  title="放大"
-                >
-                  <ZoomIn className="size-4" />
-                </button>
-                {zoom !== 1 && (
-                  <button
-                    onClick={() => setZoomIndex(2)}
-                    className="p-1 rounded hover:bg-muted/50"
-                    title="适应窗口"
-                  >
-                    <Maximize className="size-4" />
-                  </button>
-                )}
-              </div>
+              </span>
             </div>
+          )}
 
-            <div
-              className="rounded-lg border bg-muted/30 p-2 flex items-center justify-center overflow-auto"
-              style={{
-                maxHeight: zoom === 1 ? "50vh" : `${50 * zoom}vh`,
-                minHeight: 200,
-              }}
-            >
-              {displaySrc ? (
-                mode === "crop" ? (
-                  <ReactCrop
-                    crop={crop}
-                    onChange={(c) => setCrop(c)}
-                    onComplete={(c) => setCompletedCrop(c)}
-                    aspect={aspectRatio}
-                  >
-                    <img
-                      src={displaySrc}
-                      alt="裁剪预览"
-                      className="max-w-full object-contain"
-                      style={{
-                        maxHeight: zoom === 1 ? "50vh" : "none",
-                        width: zoom === 1 ? "100%" : `${zoom * 100}%`,
-                        maxWidth: zoom === 1 ? "100%" : "none",
-                        height: "auto",
-                      }}
-                      onLoad={handleImageLoad}
-                    />
-                  </ReactCrop>
-                ) : (
+          {/* 缩略图导航 */}
+          {files.length > 1 && (
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {files.map((item, i) => (
+                <button
+                  key={i}
+                  onClick={() => setActiveIndex(i)}
+                  className={`shrink-0 size-12 rounded-md border-2 overflow-hidden transition-colors ${
+                    i === activeIndex
+                      ? "border-foreground"
+                      : "border-transparent hover:border-muted-foreground/30"
+                  }`}
+                >
+                  <img src={item.previewUrl} alt="" className="size-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* 预览区域 */}
+          <div
+            className="relative rounded-lg border bg-muted/20 flex items-start justify-center overflow-auto"
+            style={{
+              height: isFit ? `min(calc(100vh - 380px), ${50}vh)` : `${50 * zoom}vh`,
+              minHeight: 300,
+              scrollbarWidth: "thin",
+              scrollbarColor: "hsl(var(--border)) transparent",
+            }}
+          >
+            {displaySrc ? (
+              mode === "crop" ? (
+                <ReactCrop
+                  crop={crop}
+                  onChange={(c) => setCrop(c)}
+                  onComplete={(c) => setCompletedCrop(c)}
+                  aspect={aspectRatio}
+                >
                   <img
                     src={displaySrc}
-                    alt="调整预览"
+                    alt="裁剪预览"
                     className="max-w-full object-contain"
                     style={{
-                      maxHeight: zoom === 1 ? "50vh" : "none",
-                      width: zoom === 1 ? "100%" : `${zoom * 100}%`,
-                      maxWidth: zoom === 1 ? "100%" : "none",
+                      maxHeight: isFit ? "none" : "none",
+                      width: isFit ? "100%" : `${zoom * 100}%`,
+                      maxWidth: isFit ? "100%" : "none",
                       height: "auto",
                     }}
                     onLoad={handleImageLoad}
                   />
-                )
+                </ReactCrop>
               ) : (
-                <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">
-                  请先上传图片
-                </div>
+                <img
+                  src={displaySrc}
+                  alt="调整预览"
+                  className="max-w-full object-contain"
+                  style={{
+                    maxHeight: isFit ? "none" : "none",
+                    width: isFit ? "100%" : `${zoom * 100}%`,
+                    maxWidth: isFit ? "100%" : "none",
+                    height: "auto",
+                  }}
+                  onLoad={handleImageLoad}
+                />
+              )
+            ) : (
+              <div className="flex items-center justify-center w-full h-full text-muted-foreground text-sm py-16">
+                请先上传图片
+              </div>
+            )}
+          </div>
+
+          {/* 底部状态栏 */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setZoomIndex((i) => Math.max(0, i - 1))}
+                disabled={zoomIndex === 0}
+                className="p-1 rounded hover:bg-muted/50 disabled:opacity-30"
+              >
+                <ZoomOut className="size-4" />
+              </button>
+              <span className="text-xs text-muted-foreground w-12 text-center tabular-nums">
+                {zoom === 1 ? "适应" : `${Math.round(zoom * 100)}%`}
+              </span>
+              <button
+                onClick={() => setZoomIndex((i) => Math.min(ZOOM_STEPS.length - 1, i + 1))}
+                disabled={zoomIndex === ZOOM_STEPS.length - 1}
+                className="p-1 rounded hover:bg-muted/50 disabled:opacity-30"
+              >
+                <ZoomIn className="size-4" />
+              </button>
+              {zoom !== 1 && (
+                <button
+                  onClick={() => setZoomIndex(2)}
+                  className="p-1 rounded hover:bg-muted/50"
+                  title="适应窗口"
+                >
+                  <Maximize className="size-4" />
+                </button>
               )}
             </div>
+            {originalSize && (
+              <span className="text-xs text-muted-foreground">
+                {originalSize.w} × {originalSize.h} px
+              </span>
+            )}
           </div>
         </div>
       )}
