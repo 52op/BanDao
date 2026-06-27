@@ -8,7 +8,7 @@ import {
 } from "@/components/tool/batch-file-upload";
 import { downloadBlob } from "@/lib/download";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,7 +17,59 @@ import {
   Shield,
   ZoomIn,
   Archive,
+  Palette,
+  Type,
 } from "lucide-react";
+
+const FONT_FAMILIES = [
+  { label: "无衬线", value: "Arial, Helvetica, sans-serif" },
+  { label: "衬线", value: '"Times New Roman", Georgia, serif' },
+  { label: "等宽", value: '"Courier New", "Consolas", monospace' },
+  { label: "微软雅黑", value: '"Microsoft YaHei", "微软雅黑", sans-serif' },
+  { label: "黑体", value: '"SimHei", "黑体", sans-serif' },
+  { label: "宋体", value: '"SimSun", "宋体", serif' },
+  { label: "楷体", value: '"KaiTi", "楷体", serif' },
+  { label: "仿宋", value: '"FangSong", "仿宋", serif' },
+];
+
+const DATE_FORMATS = [
+  { label: "2026-06-27", value: "YYYY-MM-DD" },
+  { label: "2026年6月27日", value: "YYYY年M月D日" },
+];
+
+function formatDate(fmt: string): string {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = d.getMonth() + 1;
+  const day = d.getDate();
+  return fmt
+    .replace("YYYY", String(year))
+    .replace("MM", String(month).padStart(2, "0"))
+    .replace("DD", String(day).padStart(2, "0"))
+    .replace("M", String(month))
+    .replace("D", String(day));
+}
+
+function buildText(base: string, dateEnabled: boolean, dateFormat: string): string {
+  let t = base.trim() || "水印";
+  if (dateEnabled) t += " " + formatDate(dateFormat);
+  return t;
+}
+
+function drawLines(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  lineHeight: number
+) {
+  const lines = text.split("\n");
+  const totalHeight = lines.length * lineHeight;
+  const startY = y - totalHeight / 2 + lineHeight / 2;
+  lines.forEach((line, i) => {
+    ctx.fillText(line, x, startY + i * lineHeight);
+  });
+}
 
 function drawWatermark(
   img: HTMLImageElement,
@@ -27,6 +79,11 @@ function drawWatermark(
     opacity: number;
     angle: number;
     density: number;
+    color: string;
+    fontFamily: string;
+    mode: "tile" | "single";
+    dateEnabled: boolean;
+    dateFormat: string;
   }
 ): Promise<Blob> {
   return new Promise((resolve) => {
@@ -40,21 +97,39 @@ function drawWatermark(
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     ctx.save();
     ctx.globalAlpha = opts.opacity;
-    ctx.fillStyle = "#000000";
-    ctx.font = `bold ${opts.fontSize * scale}px sans-serif`;
+    ctx.fillStyle = opts.color;
+    ctx.font = `bold ${opts.fontSize * scale}px ${opts.fontFamily}`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
 
-    const spacing = opts.fontSize * scale * (9 - opts.density);
-    for (let y = -canvas.height; y < canvas.height * 2; y += spacing) {
-      for (let x = -canvas.width; x < canvas.width * 2; x += spacing) {
-        ctx.save();
-        ctx.translate(x, y);
-        ctx.rotate((opts.angle * Math.PI) / 180);
-        ctx.fillText(opts.text, 0, 0);
-        ctx.restore();
+    const finalText = buildText(opts.text, opts.dateEnabled, opts.dateFormat);
+    const fs = opts.fontSize * scale;
+    const lineHeight = fs * 1.4;
+
+    if (opts.mode === "single") {
+      const padding = 40 * scale;
+      const cx = canvas.width - padding;
+      const cy = canvas.height - padding;
+      ctx.textAlign = "right";
+      ctx.textBaseline = "bottom";
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate((opts.angle * Math.PI) / 180);
+      drawLines(ctx, finalText, 0, 0, lineHeight);
+      ctx.restore();
+    } else {
+      const spacing = fs * (13 - opts.density * 1.5);
+      for (let y = -canvas.height; y < canvas.height * 2; y += spacing) {
+        for (let x = -canvas.width; x < canvas.width * 2; x += spacing) {
+          ctx.save();
+          ctx.translate(x, y);
+          ctx.rotate((opts.angle * Math.PI) / 180);
+          drawLines(ctx, finalText, 0, 0, lineHeight);
+          ctx.restore();
+        }
       }
     }
+
     ctx.restore();
     canvas.toBlob((b) => resolve(b!), "image/png", 1);
   });
@@ -68,6 +143,11 @@ export default function WatermarkTool() {
   const [opacity, setOpacity] = useState(0.3);
   const [angle, setAngle] = useState(-30);
   const [density, setDensity] = useState(3);
+  const [color, setColor] = useState("#000000");
+  const [fontFamily, setFontFamily] = useState(FONT_FAMILIES[0].value);
+  const [mode, setMode] = useState<"tile" | "single">("tile");
+  const [dateEnabled, setDateEnabled] = useState(false);
+  const [dateFormat, setDateFormat] = useState("YYYY-MM-DD");
   const [loading, setLoading] = useState(false);
   const [magnify, setMagnify] = useState(false);
   const [magnifyPos, setMagnifyPos] = useState({ x: 0, y: 0 });
@@ -111,7 +191,6 @@ export default function WatermarkTool() {
     setActiveIndex(0);
   }, [files]);
 
-  // Load active image for preview
   useEffect(() => {
     const item = files[activeIndex];
     if (!item) {
@@ -122,7 +201,6 @@ export default function WatermarkTool() {
     const img = new Image();
     img.onload = () => {
       previewImgRef.current = img;
-      // Draw preview
       const maxW = 800;
       const scale = Math.min(1, maxW / img.naturalWidth);
       const canvas = document.createElement("canvas");
@@ -132,25 +210,42 @@ export default function WatermarkTool() {
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       ctx.save();
       ctx.globalAlpha = opacity;
-      ctx.fillStyle = "#000000";
-      ctx.font = `bold ${fontSize * scale}px sans-serif`;
+      ctx.fillStyle = color;
+      ctx.font = `bold ${fontSize * scale}px ${fontFamily}`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      const spacing = fontSize * scale * (9 - density);
-      for (let y = -canvas.height; y < canvas.height * 2; y += spacing) {
-        for (let x = -canvas.width; x < canvas.width * 2; x += spacing) {
-          ctx.save();
-          ctx.translate(x, y);
-          ctx.rotate((angle * Math.PI) / 180);
-          ctx.fillText(text, 0, 0);
-          ctx.restore();
+
+      const finalText = buildText(text, dateEnabled, dateFormat);
+      const fs = fontSize * scale;
+      const lineHeight = fs * 1.4;
+
+      if (mode === "single") {
+        const padding = 40 * scale;
+        ctx.textAlign = "right";
+        ctx.textBaseline = "bottom";
+        ctx.save();
+        ctx.translate(canvas.width - padding, canvas.height - padding);
+        ctx.rotate((angle * Math.PI) / 180);
+        drawLines(ctx, finalText, 0, 0, lineHeight);
+        ctx.restore();
+      } else {
+        const spacing = fs * (13 - density * 1.5);
+        for (let y = -canvas.height; y < canvas.height * 2; y += spacing) {
+          for (let x = -canvas.width; x < canvas.width * 2; x += spacing) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate((angle * Math.PI) / 180);
+            drawLines(ctx, finalText, 0, 0, lineHeight);
+            ctx.restore();
+          }
         }
       }
+
       ctx.restore();
       setPreviewCanvas(canvas);
     };
     img.src = item.previewUrl!;
-  }, [files, activeIndex, text, fontSize, opacity, angle, density]);
+  }, [files, activeIndex, text, fontSize, opacity, angle, density, color, fontFamily, mode, dateEnabled, dateFormat]);
 
   const handlePreviewMouseMove = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -161,17 +256,19 @@ export default function WatermarkTool() {
     [previewCanvas]
   );
 
+  const getOpts = useCallback(() => ({
+    text, fontSize, opacity, angle, density, color, fontFamily, mode, dateEnabled, dateFormat,
+  }), [text, fontSize, opacity, angle, density, color, fontFamily, mode, dateEnabled, dateFormat]);
+
   const handleDownloadOne = useCallback(async () => {
     const item = files[activeIndex];
     if (!item || !previewImgRef.current) return;
     setLoading(true);
-    const blob = await drawWatermark(previewImgRef.current, {
-      text, fontSize, opacity, angle, density,
-    });
+    const blob = await drawWatermark(previewImgRef.current, getOpts());
     const baseName = item.file.name.replace(/\.[^.]+$/, "");
     downloadBlob(blob, `${baseName}_水印.png`);
     setLoading(false);
-  }, [files, activeIndex, text, fontSize, opacity, angle, density]);
+  }, [files, activeIndex, getOpts]);
 
   const handleDownloadAll = useCallback(async () => {
     if (files.length === 0) return;
@@ -191,7 +288,7 @@ export default function WatermarkTool() {
           el.onerror = reject;
           el.src = files[i].previewUrl!;
         });
-        const blob = await drawWatermark(img, { text, fontSize, opacity, angle, density });
+        const blob = await drawWatermark(img, getOpts());
         const baseName = files[i].file.name.replace(/\.[^.]+$/, "");
         zip.file(`${baseName}_水印.png`, blob);
         setFiles((prev) =>
@@ -211,7 +308,7 @@ export default function WatermarkTool() {
     const zipBlob = await zip.generateAsync({ type: "blob" });
     downloadBlob(zipBlob, "watermarked_images.zip");
     setLoading(false);
-  }, [files, text, fontSize, opacity, angle, density]);
+  }, [files, getOpts]);
 
   const magnifySize = 200;
   const magnifyZoom = 2.5;
@@ -232,14 +329,68 @@ export default function WatermarkTool() {
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="space-y-4 rounded-lg border p-5">
             <h3 className="text-sm font-medium">水印设置</h3>
+
             <div className="space-y-2">
               <Label htmlFor="wm-text">水印文字</Label>
-              <Input
+              <Textarea
                 id="wm-text"
                 value={text}
                 onChange={(e) => setText(e.target.value)}
+                rows={3}
               />
             </div>
+
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={dateEnabled}
+                  onChange={(e) => setDateEnabled(e.target.checked)}
+                  className="size-4"
+                />
+                自动添加日期
+              </label>
+              {dateEnabled && (
+                <select
+                  value={dateFormat}
+                  onChange={(e) => setDateFormat(e.target.value)}
+                  className="h-7 rounded border border-input bg-transparent px-2 text-xs"
+                >
+                  {DATE_FORMATS.map((f) => (
+                    <option key={f.value} value={f.value}>
+                      {f.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Palette className="size-4 text-muted-foreground" />
+                <input
+                  type="color"
+                  value={color}
+                  onChange={(e) => setColor(e.target.value)}
+                  className="size-7 cursor-pointer rounded border p-0.5"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Type className="size-4 text-muted-foreground" />
+                <select
+                  value={fontFamily}
+                  onChange={(e) => setFontFamily(e.target.value)}
+                  className="h-7 rounded border border-input bg-transparent px-2 text-xs"
+                >
+                  {FONT_FAMILIES.map((f) => (
+                    <option key={f.value} value={f.value}>
+                      {f.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label>文字大小 ({fontSize}px)</Label>
               <Slider
@@ -250,6 +401,7 @@ export default function WatermarkTool() {
                 step={2}
               />
             </div>
+
             <div className="space-y-2">
               <Label>透明度 ({Math.round(opacity * 100)}%)</Label>
               <Slider
@@ -260,6 +412,7 @@ export default function WatermarkTool() {
                 step={1}
               />
             </div>
+
             <div className="space-y-2">
               <Label>旋转角度 ({angle}°)</Label>
               <Slider
@@ -270,23 +423,52 @@ export default function WatermarkTool() {
                 step={5}
               />
             </div>
+
             <div className="space-y-2">
-              <Label>水印密度</Label>
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-muted-foreground">疏</span>
-                <Slider
-                  value={[density]}
-                  onValueChange={(v) => setDensity(Array.isArray(v) ? v[0] : v)}
-                  min={1}
-                  max={8}
-                  step={0.5}
-                  className="flex-1"
-                />
-                <span className="text-xs text-muted-foreground">密</span>
+              <Label>水印位置</Label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setMode("tile")}
+                  className={`flex-1 rounded-lg border px-3 py-1.5 text-sm transition-colors ${
+                    mode === "tile"
+                      ? "border-foreground bg-accent font-medium"
+                      : "border-input text-muted-foreground hover:border-muted-foreground/40"
+                  }`}
+                >
+                  平铺
+                </button>
+                <button
+                  onClick={() => setMode("single")}
+                  className={`flex-1 rounded-lg border px-3 py-1.5 text-sm transition-colors ${
+                    mode === "single"
+                      ? "border-foreground bg-accent font-medium"
+                      : "border-input text-muted-foreground hover:border-muted-foreground/40"
+                  }`}
+                >
+                  右下角单条
+                </button>
               </div>
             </div>
 
-            <div className="flex gap-3">
+            {mode === "tile" && (
+              <div className="space-y-2">
+                <Label>水印密度</Label>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-muted-foreground">疏</span>
+                  <Slider
+                    value={[density]}
+                    onValueChange={(v) => setDensity(Array.isArray(v) ? v[0] : v)}
+                    min={1}
+                    max={8}
+                    step={0.5}
+                    className="flex-1"
+                  />
+                  <span className="text-xs text-muted-foreground">密</span>
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-3 pt-2">
               <Button
                 onClick={files.length === 1 ? handleDownloadOne : handleDownloadAll}
                 disabled={loading}
@@ -402,7 +584,7 @@ export default function WatermarkTool() {
           </div>
           <p className="font-medium text-base">上传图片添加水印</p>
           <p className="text-sm text-muted-foreground/60 max-w-xs">
-            支持批量上传，自定义水印文字、大小、透明度、角度和密度
+            支持批量上传，自定义文字、颜色、字体、位置和密度
           </p>
         </div>
       )}
