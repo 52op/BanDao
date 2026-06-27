@@ -80,9 +80,11 @@ export default function ImageCropTool() {
   const [outputFormat, setOutputFormat] = useState<"png" | "jpeg" | "webp">("png");
   const [quality, setQuality] = useState(90);
   const [showOutput, setShowOutput] = useState(false);
+  const [showAspectRatio, setShowAspectRatio] = useState(false);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const rotatedUrlRef = useRef<string | null>(null);
+  const cropBtnRef = useRef<HTMLDivElement>(null);
 
   const activeFile = files[activeIndex];
   const displaySrc = rotatedSrc || activeFile?.previewUrl || null;
@@ -119,7 +121,16 @@ export default function ImageCropTool() {
     return () => window.removeEventListener("resize", calcFit);
   }, [calcFit]);
 
-  // 放大后容器能滚动
+  useEffect(() => {
+    if (!showAspectRatio) return;
+    const handler = (e: MouseEvent) => {
+      if (cropBtnRef.current && !cropBtnRef.current.contains(e.target as Node))
+        setShowAspectRatio(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showAspectRatio]);
+
   const displayScale = zoom === "fit" ? fitScale : zoom;
   const displayW = originalSize ? Math.round(originalSize.w * displayScale) : undefined;
   const displayH = originalSize ? Math.round(originalSize.h * displayScale) : undefined;
@@ -204,10 +215,18 @@ export default function ImageCropTool() {
     (e: React.SyntheticEvent<HTMLImageElement>) => {
       const img = e.currentTarget;
       imgRef.current = img;
-      setOriginalSize({ w: img.naturalWidth, h: img.naturalHeight });
+      const w = img.naturalWidth;
+      const h = img.naturalHeight;
+      setOriginalSize({ w, h });
+      if (containerRef.current) {
+        const pad = 8;
+        const cw = containerRef.current.clientWidth - pad;
+        const ch = containerRef.current.clientHeight - pad;
+        setFitScale(Math.min(Math.max(cw, 1) / w, Math.max(ch, 1) / h));
+      }
       if (mode === "resize") {
-        setResizeWidth(img.naturalWidth);
-        setResizeHeight(img.naturalHeight);
+        setResizeWidth(w);
+        setResizeHeight(h);
       }
     },
     [mode]
@@ -367,13 +386,35 @@ export default function ImageCropTool() {
         <div className="flex flex-col gap-3 min-h-0">
           {/* 工具栏 */}
           <div className="flex items-center gap-1.5 flex-wrap rounded-lg border bg-muted/20 px-3 py-2">
-            <div className="flex items-center gap-1">
-              <Button size="sm" variant={mode === "crop" ? "default" : "ghost"} onClick={() => setMode("crop")}>
-                <CropIcon className="size-3.5" /> 裁剪
-              </Button>
+            <div className="flex items-center gap-1 relative" ref={cropBtnRef}>
+              <div className="flex">
+                <Button size="sm" variant={mode === "crop" ? "default" : "ghost"} onClick={() => { setMode("crop"); setShowAspectRatio(false); }}>
+                  <CropIcon className="size-3.5" /> 裁剪
+                </Button>
+                <Button size="sm" variant={mode === "crop" ? "default" : "ghost"} onClick={() => setShowAspectRatio(!showAspectRatio)} className="px-1">
+                  <ChevronDown className={`size-3.5 transition-transform ${showAspectRatio ? "rotate-180" : ""}`} />
+                </Button>
+              </div>
               <Button size="sm" variant={mode === "resize" ? "default" : "ghost"} onClick={() => setMode("resize")}>
                 <ChevronDown className="size-3.5 rotate-45" /> 缩放
               </Button>
+              {showAspectRatio && mode === "crop" && (
+                <div className="absolute top-full left-0 mt-1 z-10 flex gap-0.5 rounded-lg border bg-popover shadow-md p-1">
+                  {ASPECT_PRESETS.map((a) => (
+                    <button
+                      key={a.label}
+                      onClick={() => { setAspectRatio(a.value); setShowAspectRatio(false); }}
+                      className={`px-2 py-1 rounded text-xs whitespace-nowrap transition-colors ${
+                        aspectRatio === a.value
+                          ? "bg-accent font-medium"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {a.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <Separator orientation="vertical" className="h-5 mx-1" />
@@ -389,26 +430,8 @@ export default function ImageCropTool() {
 
             <Separator orientation="vertical" className="h-5 mx-1" />
 
-            <div className="flex items-center gap-1.5">
-              {mode === "crop" && (
-                <div className="flex items-center gap-1">
-                  {ASPECT_PRESETS.map((a) => (
-                    <button
-                      key={a.label}
-                      onClick={() => setAspectRatio(a.value)}
-                      className={`px-2 py-0.5 rounded text-xs border transition-colors ${
-                        aspectRatio === a.value
-                          ? "border-foreground bg-accent font-medium"
-                          : "border-transparent text-muted-foreground hover:border-muted-foreground/30"
-                      }`}
-                    >
-                      {a.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {mode === "resize" && originalSize && (
-                <div className="flex items-center gap-2 text-sm">
+            {mode === "resize" && originalSize && (
+              <div className="flex items-center gap-2 text-sm">
                   <input
                     type="number"
                     value={resizeWidth}
@@ -436,9 +459,8 @@ export default function ImageCropTool() {
                     <input type="checkbox" checked={lockRatio} onChange={(e) => setLockRatio(e.target.checked)} />
                     锁定
                   </label>
-                </div>
+                 </div>
               )}
-            </div>
 
             <div className="ml-auto flex items-center gap-2">
               {/* 缩放控制 */}
