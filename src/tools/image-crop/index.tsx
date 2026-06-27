@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import ReactCrop, { type Crop } from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
 import JSZip from "jszip";
@@ -12,9 +12,35 @@ import { downloadBlob } from "@/lib/download";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Crop as CropIcon, Download, Loader2, RefreshCw } from "lucide-react";
+import {
+  Crop as CropIcon,
+  Download,
+  Loader2,
+  RefreshCw,
+  RotateCw,
+  RotateCcw,
+  ZoomIn,
+} from "lucide-react";
 
 type Mode = "crop" | "resize";
+
+const ASPECT_PRESETS = [
+  { label: "自由", value: undefined },
+  { label: "1:1", value: 1 },
+  { label: "4:3", value: 4 / 3 },
+  { label: "16:9", value: 16 / 9 },
+  { label: "3:2", value: 3 / 2 },
+  { label: "5:7", value: 5 / 7 },
+];
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const el = new Image();
+    el.onload = () => resolve(el);
+    el.onerror = reject;
+    el.src = src;
+  });
+}
 
 export default function ImageCropTool() {
   const [files, setFiles] = useState<BatchFileItem[]>([]);
@@ -26,8 +52,73 @@ export default function ImageCropTool() {
   const [resizeHeight, setResizeHeight] = useState(600);
   const [lockRatio, setLockRatio] = useState(true);
   const [loading, setLoading] = useState(false);
-  const imgRef = useRef<HTMLImageElement | null>(null);
+  const [rotation, setRotation] = useState(0);
+  const [rotatedSrc, setRotatedSrc] = useState<string | null>(null);
   const [originalSize, setOriginalSize] = useState<{ w: number; h: number } | null>(null);
+  const [aspectRatio, setAspectRatio] = useState<number | undefined>(undefined);
+  const [outputFormat, setOutputFormat] = useState<"png" | "jpeg" | "webp">("png");
+  const [quality, setQuality] = useState(90);
+  const [magnify, setMagnify] = useState(false);
+  const [magnifyPos, setMagnifyPos] = useState({ x: 0, y: 0 });
+  const imgRef = useRef<HTMLImageElement | null>(null);
+  const cropContainerRef = useRef<HTMLDivElement>(null);
+  const rotatedUrlRef = useRef<string | null>(null);
+
+  const activeFile = files[activeIndex];
+  const displaySrc = rotatedSrc || activeFile?.previewUrl || null;
+
+  // Reset rotation & crop when switching files
+  useEffect(() => {
+    setRotation(0);
+    setCrop(undefined);
+    setCompletedCrop(null);
+    setAspectRatio(undefined);
+    if (rotatedUrlRef.current) {
+      URL.revokeObjectURL(rotatedUrlRef.current);
+      rotatedUrlRef.current = null;
+    }
+    setRotatedSrc(null);
+  }, [activeIndex]);
+
+  // Generate rotated preview when rotation changes
+  useEffect(() => {
+    if (!activeFile?.previewUrl || rotation === 0) {
+      if (rotatedUrlRef.current) {
+        URL.revokeObjectURL(rotatedUrlRef.current);
+        rotatedUrlRef.current = null;
+      }
+      setRotatedSrc(null);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      const img = await loadImage(activeFile.previewUrl!);
+      if (cancelled) return;
+      const canvas = document.createElement("canvas");
+      const rad = (rotation * Math.PI) / 180;
+      if (rotation % 180 === 90) {
+        canvas.width = img.naturalHeight;
+        canvas.height = img.naturalWidth;
+      } else {
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+      }
+      const ctx = canvas.getContext("2d")!;
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate(rad);
+      ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+      canvas.toBlob((b) => {
+        if (cancelled || !b) return;
+        const url = URL.createObjectURL(b);
+        if (rotatedUrlRef.current) URL.revokeObjectURL(rotatedUrlRef.current);
+        rotatedUrlRef.current = url;
+        setRotatedSrc(url);
+      });
+    })();
+
+    return () => { cancelled = true; };
+  }, [rotation, activeFile?.previewUrl]);
 
   const handleFiles = useCallback((newFiles: File[]) => {
     const imageFiles = newFiles.filter((f) => f.type.startsWith("image/"));
@@ -71,87 +162,94 @@ export default function ImageCropTool() {
       const img = e.currentTarget;
       imgRef.current = img;
       setOriginalSize({ w: img.naturalWidth, h: img.naturalHeight });
-      setResizeWidth(img.naturalWidth);
-      setResizeHeight(img.naturalHeight);
+      if (mode === "resize") {
+        setResizeWidth(img.naturalWidth);
+        setResizeHeight(img.naturalHeight);
+      }
     },
-    []
+    [mode]
   );
 
-  const getCroppedImg = useCallback(
-    async (image: HTMLImageElement, crop: Crop): Promise<Blob> => {
-      const canvas = document.createElement("canvas");
-      // ReactCrop 坐标基于 CSS 显示尺寸，需用显示尺寸计算缩放比
-      const displayedEl = imgRef.current;
-      const displayedWidth = displayedEl ? displayedEl.width : image.naturalWidth;
-      const displayedHeight = displayedEl ? displayedEl.height : image.naturalHeight;
-      const scaleX = image.naturalWidth / displayedWidth;
-      const scaleY = image.naturalHeight / displayedHeight;
-
-      canvas.width = crop.width * scaleX;
-      canvas.height = crop.height * scaleY;
-      const ctx = canvas.getContext("2d")!;
-
-      ctx.drawImage(
-        image,
-        crop.x * scaleX,
-        crop.y * scaleY,
-        crop.width * scaleX,
-        crop.height * scaleY,
-        0,
-        0,
-        crop.width * scaleX,
-        crop.height * scaleY
-      );
-
-      return new Promise((resolve) => {
-        canvas.toBlob((b) => resolve(b!), "image/png", 1);
-      });
-    },
-    []
-  );
-
-  const getResizedImg = useCallback(
-    async (image: HTMLImageElement, w: number, h: number): Promise<Blob> => {
-      const canvas = document.createElement("canvas");
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext("2d")!;
-      ctx.drawImage(image, 0, 0, w, h);
-      return new Promise((resolve) => {
-        canvas.toBlob((b) => resolve(b!), "image/png", 1);
-      });
-    },
-    []
-  );
+  const handleRotate = useCallback(async (deg: number) => {
+    setRotation((prev) => (prev + deg + 360) % 360);
+  }, []);
 
   const processOne = useCallback(
     async (file: BatchFileItem): Promise<Blob | null> => {
-      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-        const el = new Image();
-        el.onload = () => resolve(el);
-        el.onerror = reject;
-        el.src = file.previewUrl!;
-      });
+      const img = await loadImage(file.previewUrl!);
+
+      // Step 1: Apply rotation
+      let source: HTMLImageElement | HTMLCanvasElement = img;
+      if (rotation !== 0) {
+        const canvas = document.createElement("canvas");
+        const rad = (rotation * Math.PI) / 180;
+        if (rotation % 180 === 90) {
+          canvas.width = img.naturalHeight;
+          canvas.height = img.naturalWidth;
+        } else {
+          canvas.width = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+        }
+        const ctx = canvas.getContext("2d")!;
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.rotate(rad);
+        ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+        source = canvas;
+      }
+
+      // Step 2: Apply crop or resize
+      const outCanvas = document.createElement("canvas");
+      const outCtx = outCanvas.getContext("2d")!;
+      const srcW = "naturalWidth" in source ? source.naturalWidth : source.width;
+      const srcH = "naturalHeight" in source ? source.naturalHeight : source.height;
 
       if (mode === "crop" && completedCrop) {
-        return getCroppedImg(img, completedCrop);
+        const displayedEl = imgRef.current;
+        const dW = displayedEl?.width || srcW;
+        const dH = displayedEl?.height || srcH;
+        const scaleX = srcW / dW;
+        const scaleY = srcH / dH;
+
+        outCanvas.width = completedCrop.width * scaleX;
+        outCanvas.height = completedCrop.height * scaleY;
+        outCtx.drawImage(
+          source,
+          completedCrop.x * scaleX,
+          completedCrop.y * scaleY,
+          completedCrop.width * scaleX,
+          completedCrop.height * scaleY,
+          0, 0,
+          outCanvas.width, outCanvas.height
+        );
       } else if (mode === "resize") {
-        return getResizedImg(img, resizeWidth, resizeHeight);
+        outCanvas.width = resizeWidth;
+        outCanvas.height = resizeHeight;
+        outCtx.drawImage(source, 0, 0, resizeWidth, resizeHeight);
+      } else {
+        return null;
       }
-      return null;
+
+      const mimeType = outputFormat === "jpeg" ? "image/jpeg"
+        : outputFormat === "webp" ? "image/webp" : "image/png";
+
+      return new Promise((resolve) => {
+        outCanvas.toBlob((b) => resolve(b!), mimeType, quality / 100);
+      });
     },
-    [mode, completedCrop, resizeWidth, resizeHeight, getCroppedImg, getResizedImg]
+    [mode, rotation, completedCrop, resizeWidth, resizeHeight, outputFormat, quality]
   );
 
   const handleDownload = useCallback(async () => {
     if (files.length === 0) return;
     setLoading(true);
 
+    const ext = outputFormat === "jpeg" ? "jpg" : outputFormat;
+
     if (files.length === 1) {
       const blob = await processOne(files[0]);
       if (blob) {
         const baseName = files[0].file.name.replace(/\.[^.]+$/, "");
-        downloadBlob(blob, `${baseName}_processed.png`);
+        downloadBlob(blob, `${baseName}_processed.${ext}`);
       }
     } else {
       const zip = new JSZip();
@@ -165,7 +263,7 @@ export default function ImageCropTool() {
           const blob = await processOne(files[i]);
           if (blob) {
             const baseName = files[i].file.name.replace(/\.[^.]+$/, "");
-            zip.file(`${baseName}_processed.png`, blob);
+            zip.file(`${baseName}_processed.${ext}`, blob);
           }
           setFiles((prev) =>
             prev.map((f, idx) =>
@@ -183,13 +281,23 @@ export default function ImageCropTool() {
         }
       }
       const zipBlob = await zip.generateAsync({ type: "blob" });
-      downloadBlob(zipBlob, "processed_images.zip");
+      downloadBlob(zipBlob, `processed_images.${ext === "jpg" ? "zip" : "zip"}`);
     }
 
     setLoading(false);
-  }, [files, processOne]);
+  }, [files, processOne, outputFormat]);
 
-  const activePreviewUrl = files[activeIndex]?.previewUrl;
+  const handlePreviewMouseMove = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (!cropContainerRef.current) return;
+      const rect = cropContainerRef.current.getBoundingClientRect();
+      setMagnifyPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+    },
+    []
+  );
+
+  const magnifySize = 180;
+  const magnifyZoom = 2.5;
 
   return (
     <div className="space-y-6">
@@ -205,7 +313,7 @@ export default function ImageCropTool() {
       {files.length > 0 && (
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="space-y-4 rounded-lg border p-5">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Button
                 size="sm"
                 variant={mode === "crop" ? "default" : "outline"}
@@ -220,7 +328,46 @@ export default function ImageCropTool() {
               >
                 <RefreshCw className="mr-1.5 size-3.5" /> 调整大小
               </Button>
+              <div className="ml-auto flex gap-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleRotate(-90)}
+                  title="左旋 90°"
+                >
+                  <RotateCcw className="size-3.5" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleRotate(90)}
+                  title="右旋 90°"
+                >
+                  <RotateCw className="size-3.5" />
+                </Button>
+              </div>
             </div>
+
+            {mode === "crop" && (
+              <div className="space-y-2">
+                <Label>裁剪比例</Label>
+                <div className="flex gap-1.5 flex-wrap">
+                  {ASPECT_PRESETS.map((a) => (
+                    <button
+                      key={a.label}
+                      onClick={() => setAspectRatio(a.value)}
+                      className={`px-2.5 py-1 rounded-md text-xs border transition-colors ${
+                        aspectRatio === a.value
+                          ? "border-foreground bg-accent font-medium"
+                          : "border-input text-muted-foreground hover:border-muted-foreground/40"
+                      }`}
+                    >
+                      {a.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {mode === "resize" && (
               <div className="space-y-3">
@@ -279,11 +426,34 @@ export default function ImageCropTool() {
               </div>
             )}
 
-            {mode === "crop" && (
-              <p className="text-xs text-muted-foreground">
-                在图片上拖拽选择裁剪区域
-              </p>
-            )}
+            <div className="space-y-2">
+              <Label>输出格式</Label>
+              <div className="flex items-center gap-3">
+                <select
+                  value={outputFormat}
+                  onChange={(e) => setOutputFormat(e.target.value as "png" | "jpeg" | "webp")}
+                  className="h-8 rounded border border-input bg-transparent px-2 text-sm"
+                >
+                  <option value="png">PNG</option>
+                  <option value="jpeg">JPEG</option>
+                  <option value="webp">WebP</option>
+                </select>
+                {outputFormat !== "png" && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground flex-1">
+                    <span className="text-xs whitespace-nowrap">质量</span>
+                    <input
+                      type="range"
+                      min={10}
+                      max={100}
+                      value={quality}
+                      onChange={(e) => setQuality(parseInt(e.target.value))}
+                      className="flex-1 h-1 accent-foreground"
+                    />
+                    <span className="text-xs w-8 text-right">{quality}%</span>
+                  </div>
+                )}
+              </div>
+            </div>
 
             <Button
               onClick={handleDownload}
@@ -306,11 +476,7 @@ export default function ImageCropTool() {
                 {files.map((item, i) => (
                   <button
                     key={i}
-                    onClick={() => {
-                      setActiveIndex(i);
-                      setCrop(undefined);
-                      setCompletedCrop(null);
-                    }}
+                    onClick={() => setActiveIndex(i)}
                     className={`shrink-0 size-14 rounded-md border-2 overflow-hidden transition-colors ${
                       i === activeIndex
                         ? "border-foreground"
@@ -329,25 +495,31 @@ export default function ImageCropTool() {
               </div>
             )}
 
-            <div className="rounded-lg border bg-muted/30 p-2 flex items-center justify-center overflow-auto">
-              {activePreviewUrl ? (
+            <div
+              ref={cropContainerRef}
+              className="relative rounded-lg border bg-muted/30 p-2 flex items-center justify-center overflow-auto cursor-crosshair"
+              onMouseEnter={() => setMagnify(true)}
+              onMouseLeave={() => setMagnify(false)}
+              onMouseMove={handlePreviewMouseMove}
+            >
+              {displaySrc ? (
                 mode === "crop" ? (
                   <ReactCrop
                     crop={crop}
                     onChange={(c) => setCrop(c)}
                     onComplete={(c) => setCompletedCrop(c)}
+                    aspect={aspectRatio}
                   >
                     <img
-                      src={activePreviewUrl}
+                      src={displaySrc}
                       alt="裁剪预览"
                       className="max-w-full max-h-[50vh] object-contain"
                       onLoad={handleImageLoad}
-                      ref={imgRef}
                     />
                   </ReactCrop>
                 ) : (
                   <img
-                    src={activePreviewUrl}
+                    src={displaySrc}
                     alt="调整预览"
                     className="max-w-full max-h-[50vh] object-contain"
                     onLoad={handleImageLoad}
@@ -356,6 +528,47 @@ export default function ImageCropTool() {
               ) : (
                 <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">
                   请先上传图片
+                </div>
+              )}
+
+              <div className="absolute bottom-3 right-3 flex items-center gap-1 text-[10px] text-muted-foreground/50 bg-background/80 backdrop-blur-sm rounded px-1.5 py-0.5">
+                <ZoomIn className="size-3" />
+                悬停放大
+              </div>
+
+              {magnify && displaySrc && (
+                <div
+                  className="pointer-events-none hidden lg:block absolute z-50 rounded-full border-2 border-foreground/20 shadow-xl overflow-hidden bg-background"
+                  style={{
+                    width: magnifySize,
+                    height: magnifySize,
+                    left: magnifyPos.x - magnifySize / 2,
+                    top: magnifyPos.y - magnifySize / 2,
+                  }}
+                >
+                  <canvas
+                    width={magnifySize}
+                    height={magnifySize}
+                    ref={(el) => {
+                      if (!el || !cropContainerRef.current) return;
+                      const ctx = el.getContext("2d");
+                      const previewImg = cropContainerRef.current.querySelector("img");
+                      if (!ctx || !previewImg) return;
+                      const sx = (magnifyPos.x / cropContainerRef.current.offsetWidth) * previewImg.naturalWidth;
+                      const sy = (magnifyPos.y / cropContainerRef.current.offsetHeight) * previewImg.naturalHeight;
+                      const sw = previewImg.naturalWidth / magnifyZoom;
+                      const sh = previewImg.naturalHeight / magnifyZoom;
+                      ctx.clearRect(0, 0, magnifySize, magnifySize);
+                      ctx.drawImage(
+                        previewImg,
+                        Math.max(0, sx - sw / 2),
+                        Math.max(0, sy - sh / 2),
+                        sw, sh,
+                        0, 0,
+                        magnifySize, magnifySize
+                      );
+                    }}
+                  />
                 </div>
               )}
             </div>
@@ -370,7 +583,7 @@ export default function ImageCropTool() {
           </div>
           <p className="font-medium text-base">上传图片开始裁剪</p>
           <p className="text-sm text-muted-foreground/60 max-w-xs">
-            支持批量上传，自由裁剪或按尺寸调整大小
+            支持批量上传，自由裁剪、旋转、调整大小，多种输出格式
           </p>
         </div>
       )}
