@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ code: 401, message: "未授权" }, { status: 401 });
   }
 
-  const res = await proxyToBackend("/stats");
+  const res = await proxyToBackend("/stats", {}, admin);
   const data = await res.json();
   return NextResponse.json(data);
 }

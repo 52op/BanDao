@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ code: 401, message: "未授权" }, { status: 401 });
   }
 
-  const res = await proxyToBackend("/tools");
+  const res = await proxyToBackend("/tools", {}, admin);
   const data = await res.json();
   return NextResponse.json(data);
 }
@@ -25,7 +25,7 @@ export async function PUT(request: NextRequest) {
     const res = await proxyToBackend(`/tools/${slug}`, {
       method: "PUT",
       body: JSON.stringify(body),
-    });
+    }, admin);
     const data = await res.json();
     return NextResponse.json(data);
   }
@@ -34,7 +34,7 @@ export async function PUT(request: NextRequest) {
   const res = await proxyToBackend("/tools/reorder", {
     method: "PUT",
     body: JSON.stringify(body),
-  });
+  }, admin);
   const data = await res.json();
   return NextResponse.json(data);
 }

@@ -7,7 +7,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ code: 401, message: "未授权" }, { status: 401 });
   }
 
-  const res = await proxyToBackend("/categories");
+  const res = await proxyToBackend("/categories", {}, admin);
   const data = await res.json();
   return NextResponse.json(data);
 }
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
   const res = await proxyToBackend("/categories", {
     method: "POST",
     body: JSON.stringify(body),
-  });
+  }, admin);
   const data = await res.json();
   return NextResponse.json(data);
 }
@@ -42,7 +42,7 @@ export async function PUT(request: NextRequest) {
   const res = await proxyToBackend(`/categories/${id}`, {
     method: "PUT",
     body: JSON.stringify(body),
-  });
+  }, admin);
   const data = await res.json();
   return NextResponse.json(data);
 }
@@ -60,7 +60,7 @@ export async function DELETE(request: NextRequest) {
 
   const res = await proxyToBackend(`/categories/${id}`, {
     method: "DELETE",
-  });
+  }, admin);
   const data = await res.json();
   return NextResponse.json(data);
 }

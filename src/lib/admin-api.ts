@@ -49,11 +49,15 @@ export function requireAdmin(request: Request): JWTPayload | null {
 // 代理请求到 Go 后端 internal API
 export async function proxyToBackend(
   path: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  admin?: JWTPayload
 ): Promise<Response> {
   const url = `${BACKEND_URL}/internal${path}`;
   const headers = new Headers(options.headers);
   headers.set("X-Internal-Secret", INTERNAL_SECRET);
+  if (admin) {
+    headers.set("X-User-Role", admin.role);
+  }
   if (!headers.has("Content-Type") && options.body) {
     headers.set("Content-Type", "application/json");
   }

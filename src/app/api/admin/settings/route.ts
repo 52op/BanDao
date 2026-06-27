@@ -7,7 +7,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ code: 401, message: "未授权" }, { status: 401 });
   }
 
-  const res = await proxyToBackend("/settings");
+  const res = await proxyToBackend("/settings", {}, admin);
   const data = await res.json();
   return NextResponse.json(data);
 }
@@ -22,7 +22,7 @@ export async function PUT(request: NextRequest) {
   const res = await proxyToBackend("/settings", {
     method: "PUT",
     body: JSON.stringify(body),
-  });
+  }, admin);
   const data = await res.json();
   return NextResponse.json(data);
 }
