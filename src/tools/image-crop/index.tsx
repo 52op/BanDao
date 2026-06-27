@@ -507,14 +507,17 @@ export default function ImageCropTool() {
                   {zoom === "fit" ? "适合" : `${Math.round(zoom * 100)}%`}
                 </span>
                 <div className="flex items-center gap-0.5">
-                  {zoom !== "fit" && (
-                    <button
-                      onClick={() => setZoom("fit")}
-                      className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 whitespace-nowrap"
-                    >
-                      重置
-                    </button>
-                  )}
+                  <button
+                    onClick={() => setZoom("fit")}
+                    disabled={zoom === "fit"}
+                    className={`text-xs whitespace-nowrap underline underline-offset-2 transition-all ${
+                      zoom === "fit"
+                        ? "text-muted-foreground/30 cursor-default"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    重置
+                  </button>
                   <button
                     onClick={() => setZoom(1)}
                     className={`text-xs whitespace-nowrap transition-colors ${
@@ -596,12 +599,12 @@ export default function ImageCropTool() {
           {/* 预览区域 */}
           <div
             ref={containerRef}
-            className="rounded-lg border bg-muted/10 overflow-auto"
+            className="rounded-lg border bg-muted/10 overflow-auto flex justify-center items-start p-1"
             style={{ height: "calc(100vh - 260px)", minHeight: 300 }}
           >
-            <div className="flex items-start justify-center p-1 min-h-full" style={{ width: displayW && zoom !== "fit" ? displayW : "100%" }}>
-              {displaySrc ? (
-                mode === "crop" ? (
+            {displaySrc ? (
+              mode === "crop" ? (
+                <div style={{ maxWidth: "none" }}>
                   <ReactCrop
                     crop={crop}
                     onChange={(c) => setCrop(c)}
@@ -611,24 +614,24 @@ export default function ImageCropTool() {
                     <img
                       src={displaySrc}
                       alt="裁剪预览"
-                      style={{ width: displayW, height: displayH, display: "block" }}
+                      style={{ maxWidth: "none", width: displayW, height: displayH, display: "block" }}
                       onLoad={handleImageLoad}
                     />
                   </ReactCrop>
-                ) : (
-                  <img
-                    src={displaySrc}
-                    alt="调整预览"
-                    style={{ width: displayW, height: displayH, display: "block" }}
-                    onLoad={handleImageLoad}
-                  />
-                )
-              ) : (
-                <div className="flex items-center justify-center w-full h-64 text-muted-foreground text-sm">
-                  请先上传图片
                 </div>
-              )}
-            </div>
+              ) : (
+                <img
+                  src={displaySrc}
+                  alt="调整预览"
+                  style={{ maxWidth: "none", width: displayW, height: displayH, display: "block" }}
+                  onLoad={handleImageLoad}
+                />
+              )
+            ) : (
+              <div className="flex items-center justify-center w-full h-64 text-muted-foreground text-sm">
+                请先上传图片
+              </div>
+            )}
           </div>
 
           {/* 图片信息 */}
