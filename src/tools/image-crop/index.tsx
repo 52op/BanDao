@@ -20,6 +20,7 @@ import {
   RotateCw,
   RotateCcw,
   ZoomIn,
+  Check,
 } from "lucide-react";
 
 type Mode = "crop" | "resize";
@@ -32,6 +33,10 @@ const ASPECT_PRESETS = [
   { label: "3:2", value: 3 / 2 },
   { label: "5:7", value: 5 / 7 },
 ];
+
+const OUTPUT_EXT: Record<string, string> = {
+  png: "png", jpeg: "jpg", webp: "webp",
+};
 
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -52,6 +57,7 @@ export default function ImageCropTool() {
   const [resizeHeight, setResizeHeight] = useState(600);
   const [lockRatio, setLockRatio] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [applying, setApplying] = useState(false);
   const [rotation, setRotation] = useState(0);
   const [rotatedSrc, setRotatedSrc] = useState<string | null>(null);
   const [originalSize, setOriginalSize] = useState<{ w: number; h: number } | null>(null);
@@ -67,7 +73,6 @@ export default function ImageCropTool() {
   const activeFile = files[activeIndex];
   const displaySrc = rotatedSrc || activeFile?.previewUrl || null;
 
-  // Reset rotation & crop when switching files
   useEffect(() => {
     setRotation(0);
     setCrop(undefined);
@@ -80,7 +85,6 @@ export default function ImageCropTool() {
     setRotatedSrc(null);
   }, [activeIndex]);
 
-  // Generate rotated preview when rotation changes
   useEffect(() => {
     if (!activeFile?.previewUrl || rotation === 0) {
       if (rotatedUrlRef.current) {
@@ -174,11 +178,10 @@ export default function ImageCropTool() {
     setRotation((prev) => (prev + deg + 360) % 360);
   }, []);
 
-  const processOne = useCallback(
-    async (file: BatchFileItem): Promise<Blob | null> => {
-      const img = await loadImage(file.previewUrl!);
+  const process = useCallback(
+    async (previewUrl: string): Promise<Blob | null> => {
+      const img = await loadImage(previewUrl);
 
-      // Step 1: Apply rotation
       let source: HTMLImageElement | HTMLCanvasElement = img;
       if (rotation !== 0) {
         const canvas = document.createElement("canvas");
@@ -197,16 +200,14 @@ export default function ImageCropTool() {
         source = canvas;
       }
 
-      // Step 2: Apply crop or resize
       const outCanvas = document.createElement("canvas");
       const outCtx = outCanvas.getContext("2d")!;
       const srcW = "naturalWidth" in source ? source.naturalWidth : source.width;
       const srcH = "naturalHeight" in source ? source.naturalHeight : source.height;
 
       if (mode === "crop" && completedCrop) {
-        const displayedEl = imgRef.current;
-        const dW = displayedEl?.width || srcW;
-        const dH = displayedEl?.height || srcH;
+        const dW = imgRef.current?.width || srcW;
+        const dH = imgRef.current?.height || srcH;
         const scaleX = srcW / dW;
         const scaleY = srcH / dH;
 
@@ -226,7 +227,9 @@ export default function ImageCropTool() {
         outCanvas.height = resizeHeight;
         outCtx.drawImage(source, 0, 0, resizeWidth, resizeHeight);
       } else {
-        return null;
+        outCanvas.width = srcW;
+        outCanvas.height = srcH;
+        outCtx.drawImage(source, 0, 0);
       }
 
       const mimeType = outputFormat === "jpeg" ? "image/jpeg"
@@ -239,17 +242,43 @@ export default function ImageCropTool() {
     [mode, rotation, completedCrop, resizeWidth, resizeHeight, outputFormat, quality]
   );
 
+  // Apply current editing (crop/resize/rotate) to the active image
+  const handleApply = useCallback(async () => {
+    if (!activeFile?.previewUrl) return;
+    setApplying(true);
+    const blob = await process(activeFile.previewUrl);
+    if (blob) {
+      const url = URL.createObjectURL(blob);
+      URL.revokeObjectURL(activeFile.previewUrl);
+      setFiles((prev) => {
+        const next = [...prev];
+        next[activeIndex] = { ...next[activeIndex], previewUrl: url };
+        return next;
+      });
+      setCrop(undefined);
+      setCompletedCrop(null);
+      setRotation(0);
+      setRotatedSrc(null);
+    }
+    setApplying(false);
+  }, [activeFile, activeIndex, process]);
+
+  // Rotate without applying (just for preview)
+  const canApply = mode === "crop" ? !!completedCrop
+    : mode === "resize" ? true
+    : false;
+
   const handleDownload = useCallback(async () => {
     if (files.length === 0) return;
     setLoading(true);
 
-    const ext = outputFormat === "jpeg" ? "jpg" : outputFormat;
+    const ext = OUTPUT_EXT[outputFormat];
 
     if (files.length === 1) {
-      const blob = await processOne(files[0]);
+      const blob = await process(files[0].previewUrl!);
       if (blob) {
         const baseName = files[0].file.name.replace(/\.[^.]+$/, "");
-        downloadBlob(blob, `${baseName}_processed.${ext}`);
+        downloadBlob(blob, `${baseName}.${ext}`);
       }
     } else {
       const zip = new JSZip();
@@ -260,10 +289,10 @@ export default function ImageCropTool() {
           )
         );
         try {
-          const blob = await processOne(files[i]);
+          const blob = await process(files[i].previewUrl!);
           if (blob) {
             const baseName = files[i].file.name.replace(/\.[^.]+$/, "");
-            zip.file(`${baseName}_processed.${ext}`, blob);
+            zip.file(`${baseName}.${ext}`, blob);
           }
           setFiles((prev) =>
             prev.map((f, idx) =>
@@ -281,11 +310,11 @@ export default function ImageCropTool() {
         }
       }
       const zipBlob = await zip.generateAsync({ type: "blob" });
-      downloadBlob(zipBlob, `processed_images.${ext === "jpg" ? "zip" : "zip"}`);
+      downloadBlob(zipBlob, "processed_images.zip");
     }
 
     setLoading(false);
-  }, [files, processOne, outputFormat]);
+  }, [files, process, outputFormat]);
 
   const handlePreviewMouseMove = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -426,6 +455,32 @@ export default function ImageCropTool() {
               </div>
             )}
 
+            <div className="flex gap-2">
+              <Button
+                onClick={handleApply}
+                disabled={!canApply || applying}
+                variant="default"
+                className="flex-1"
+              >
+                {applying ? (
+                  <><Loader2 className="mr-2 size-4 animate-spin" /> 应用中...</>
+                ) : (
+                  <><Check className="mr-2 size-4" /> 应用{ mode === "crop" ? "裁剪" : "调整大小" }</>
+                )}
+              </Button>
+              {(rotation !== 0) && (
+                <Button
+                  onClick={() => handleApply()}
+                  disabled={applying}
+                  variant="secondary"
+                  size="icon"
+                  title="应用旋转"
+                >
+                  <Check className="size-4" />
+                </Button>
+              )}
+            </div>
+
             <div className="space-y-2">
               <Label>输出格式</Label>
               <div className="flex items-center gap-3">
@@ -458,14 +513,13 @@ export default function ImageCropTool() {
             <Button
               onClick={handleDownload}
               disabled={loading}
+              variant="outline"
               className="w-full"
             >
               {loading ? (
                 <><Loader2 className="mr-2 size-4 animate-spin" /> 处理中...</>
-              ) : files.length === 1 ? (
-                <><Download className="mr-2 size-4" /> 下载处理后的图片</>
               ) : (
-                <><Download className="mr-2 size-4" /> 批量处理并打包下载</>
+                <><Download className="mr-2 size-4" /> 下载{files.length > 1 ? "全部" : ""}</>
               )}
             </Button>
           </div>
