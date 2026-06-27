@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 
 type Mode = "crop" | "resize";
+type ViewMode = "fit" | "width" | "actual";
 
 const ASPECT_PRESETS = [
   { label: "自由", value: undefined },
@@ -49,6 +50,7 @@ export default function ImageCropTool() {
   const [files, setFiles] = useState<BatchFileItem[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [mode, setMode] = useState<Mode>("crop");
+  const [viewMode, setViewMode] = useState<ViewMode>("fit");
   const [crop, setCrop] = useState<Crop | undefined>(undefined);
   const [completedCrop, setCompletedCrop] = useState<Crop | null>(null);
   const [resizeWidth, setResizeWidth] = useState(800);
@@ -63,18 +65,22 @@ export default function ImageCropTool() {
   const [outputFormat, setOutputFormat] = useState<"png" | "jpeg" | "webp">("png");
   const [quality, setQuality] = useState(90);
   const [showOutput, setShowOutput] = useState(false);
+  const [fitHeight, setFitHeight] = useState<number | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const rotatedUrlRef = useRef<string | null>(null);
+  const mainRef = useRef<HTMLDivElement>(null);
 
   const activeFile = files[activeIndex];
   const displaySrc = rotatedSrc || activeFile?.previewUrl || null;
 
+  // 切换文件时重置
   useEffect(() => {
     setRotation(0);
     setCrop(undefined);
     setCompletedCrop(null);
     setAspectRatio(undefined);
     setShowOutput(false);
+    setViewMode("fit");
     if (rotatedUrlRef.current) {
       URL.revokeObjectURL(rotatedUrlRef.current);
       rotatedUrlRef.current = null;
@@ -82,6 +88,23 @@ export default function ImageCropTool() {
     setRotatedSrc(null);
   }, [activeIndex]);
 
+  // 全图模式：计算可用高度
+  useEffect(() => {
+    if (viewMode !== "fit" || !mainRef.current || !displaySrc) {
+      setFitHeight(null);
+      return;
+    }
+    const calc = () => {
+      if (!mainRef.current) return;
+      const rect = mainRef.current.getBoundingClientRect();
+      setFitHeight(window.innerHeight - rect.top - 24);
+    };
+    calc();
+    window.addEventListener("resize", calc);
+    return () => window.removeEventListener("resize", calc);
+  }, [viewMode, activeIndex, displaySrc]);
+
+  // 旋转预览
   useEffect(() => {
     if (!activeFile?.previewUrl || rotation === 0) {
       if (rotatedUrlRef.current) {
@@ -321,22 +344,14 @@ export default function ImageCropTool() {
       />
 
       {files.length > 0 && (
-        <div className="flex flex-col gap-3 min-h-0">
+        <div ref={mainRef} className="flex flex-col gap-3 min-h-0">
           {/* 工具栏 */}
           <div className="flex items-center gap-1.5 flex-wrap rounded-lg border bg-muted/20 px-3 py-2">
             <div className="flex items-center gap-1">
-              <Button
-                size="sm"
-                variant={mode === "crop" ? "default" : "ghost"}
-                onClick={() => setMode("crop")}
-              >
+              <Button size="sm" variant={mode === "crop" ? "default" : "ghost"} onClick={() => setMode("crop")}>
                 <CropIcon className="size-3.5" /> 裁剪
               </Button>
-              <Button
-                size="sm"
-                variant={mode === "resize" ? "default" : "ghost"}
-                onClick={() => setMode("resize")}
-              >
+              <Button size="sm" variant={mode === "resize" ? "default" : "ghost"} onClick={() => setMode("resize")}>
                 <ChevronDown className="size-3.5 rotate-45" /> 缩放
               </Button>
             </div>
@@ -350,6 +365,24 @@ export default function ImageCropTool() {
               <Button size="sm" variant="ghost" onClick={() => handleRotate(90)} title="右旋 90°">
                 <RotateCw className="size-3.5" />
               </Button>
+            </div>
+
+            <Separator orientation="vertical" className="h-5 mx-1" />
+
+            <div className="flex items-center gap-1 bg-muted/40 rounded-lg p-0.5">
+              {(["fit", "width", "actual"] as const).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setViewMode(v)}
+                  className={`px-2 py-0.5 rounded text-xs transition-colors ${
+                    viewMode === v
+                      ? "bg-background shadow-sm font-medium"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {v === "fit" ? "全图" : v === "width" ? "宽度" : "实际"}
+                </button>
+              ))}
             </div>
 
             <Separator orientation="vertical" className="h-5 mx-1" />
@@ -398,11 +431,7 @@ export default function ImageCropTool() {
                     min={1}
                   />
                   <label className="flex items-center gap-1 text-xs text-muted-foreground cursor-pointer whitespace-nowrap">
-                    <input
-                      type="checkbox"
-                      checked={lockRatio}
-                      onChange={(e) => setLockRatio(e.target.checked)}
-                    />
+                    <input type="checkbox" checked={lockRatio} onChange={(e) => setLockRatio(e.target.checked)} />
                     锁定
                   </label>
                 </div>
@@ -475,9 +504,15 @@ export default function ImageCropTool() {
             </div>
           )}
 
-          {/* 预览区域：宽度100%，高度由图片决定，超出窗口时页面滚动 */}
-          <div className="rounded-lg border bg-muted/10 overflow-hidden">
-            <div className="flex items-start justify-center p-1 w-full">
+          {/* 预览区域 */}
+          <div
+            className="rounded-lg border bg-muted/10 overflow-auto"
+            style={{
+              maxHeight: viewMode === "fit" && fitHeight ? `${fitHeight}px` : "none",
+              minHeight: 200,
+            }}
+          >
+            <div className="flex items-start justify-center p-1 w-full min-h-full">
               {displaySrc ? (
                 mode === "crop" ? (
                   <ReactCrop
@@ -487,18 +522,32 @@ export default function ImageCropTool() {
                     aspect={aspectRatio}
                     className="max-w-full"
                   >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={displaySrc}
                       alt="裁剪预览"
-                      className="max-w-full h-auto"
+                      className={viewMode === "actual" ? "" : "max-w-full"}
+                      style={{
+                        width: viewMode === "actual" && originalSize ? originalSize.w : viewMode === "width" ? "100%" : undefined,
+                        height: viewMode === "actual" && originalSize ? originalSize.h : undefined,
+                        maxHeight: viewMode === "fit" && fitHeight ? `${fitHeight}px` : undefined,
+                        display: "block",
+                      }}
                       onLoad={handleImageLoad}
                     />
                   </ReactCrop>
                 ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={displaySrc}
                     alt="调整预览"
-                    className="max-w-full h-auto"
+                    className={viewMode === "actual" ? "" : "max-w-full"}
+                    style={{
+                      width: viewMode === "actual" && originalSize ? originalSize.w : viewMode === "width" ? "100%" : undefined,
+                      height: viewMode === "actual" && originalSize ? originalSize.h : undefined,
+                      maxHeight: viewMode === "fit" && fitHeight ? `${fitHeight}px` : undefined,
+                      display: "block",
+                    }}
                     onLoad={handleImageLoad}
                   />
                 )
@@ -513,10 +562,14 @@ export default function ImageCropTool() {
           {/* 图片信息 */}
           {originalSize && (
             <p className="text-xs text-muted-foreground text-center">
-              {originalSize.w} × {originalSize.h} px
+              {viewMode === "actual"
+                ? `实际像素 ${originalSize.w} × ${originalSize.h} px`
+                : viewMode === "width"
+                ? `宽度自适应 ${originalSize.w} × ${originalSize.h} px`
+                : `${originalSize.w} × ${originalSize.h} px`}
               {mode === "crop" && completedCrop && (
                 <span className="ml-3">
-                  选区：{Math.round(completedCrop.width)} × {Math.round(completedCrop.height)} px
+                  选区 {Math.round(completedCrop.width)} × {Math.round(completedCrop.height)} px
                 </span>
               )}
             </p>
