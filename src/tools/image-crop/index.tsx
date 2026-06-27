@@ -126,15 +126,11 @@ export default function ImageCropTool() {
     const handler = (e: WheelEvent) => {
       if (!e.ctrlKey) return;
       e.preventDefault();
-      const delta = e.deltaY > 0 ? -0.1 : 0.1;
       setZoom((prev) => {
-        if (prev === "fit") {
-          const base = Math.round(fitScale * 100);
-          return Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Math.round((base + delta * 100) / 5) * 5)) / 100;
-        }
-        const current = Math.round(prev * 100);
-        const next = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, current + (e.deltaY > 0 ? -5 : 5)));
-        return next / 100;
+        const cur = prev === "fit" ? fitScale : prev;
+        const factor = e.deltaY > 0 ? 0.95 : 1.05;
+        const next = cur * factor;
+        return Math.max(ZOOM_MIN / 100, Math.min(ZOOM_MAX / 100, next));
       });
     };
     el.addEventListener("wheel", handler, { passive: false });
@@ -477,10 +473,10 @@ export default function ImageCropTool() {
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => setZoom((prev) => {
-                    if (prev === "fit") return Math.max(ZOOM_MIN, Math.round(fitScale * 100) - 10) / 100;
-                    return Math.max(ZOOM_MIN, Math.round(prev * 100) - 10) / 100;
+                    const cur = prev === "fit" ? fitScale : prev;
+                    return Math.max(ZOOM_MIN / 100, Math.min(ZOOM_MAX / 100, cur * 0.9));
                   })}
-                  disabled={zoom !== "fit" && Math.round(zoom * 100) <= ZOOM_MIN}
+                  disabled={zoom !== "fit" && zoom <= ZOOM_MIN / 100}
                   className="p-0.5 rounded hover:bg-background/50 disabled:opacity-30"
                 >
                   <ZoomOut className="size-3.5" />
@@ -499,10 +495,10 @@ export default function ImageCropTool() {
                 />
                 <button
                   onClick={() => setZoom((prev) => {
-                    if (prev === "fit") return Math.min(ZOOM_MAX, Math.round(fitScale * 100) + 10) / 100;
-                    return Math.min(ZOOM_MAX, Math.round(prev * 100) + 10) / 100;
+                    const cur = prev === "fit" ? fitScale : prev;
+                    return Math.max(ZOOM_MIN / 100, Math.min(ZOOM_MAX / 100, cur * 1.1));
                   })}
-                  disabled={zoom !== "fit" && Math.round(zoom * 100) >= ZOOM_MAX}
+                  disabled={zoom !== "fit" && zoom >= ZOOM_MAX / 100}
                   className="p-0.5 rounded hover:bg-background/50 disabled:opacity-30"
                 >
                   <ZoomIn className="size-3.5" />
@@ -510,14 +506,26 @@ export default function ImageCropTool() {
                 <span className="text-xs text-muted-foreground w-10 text-center tabular-nums cursor-default select-none min-w-10">
                   {zoom === "fit" ? "适合" : `${Math.round(zoom * 100)}%`}
                 </span>
-                {zoom !== "fit" && (
+                <div className="flex items-center gap-0.5">
+                  {zoom !== "fit" && (
+                    <button
+                      onClick={() => setZoom("fit")}
+                      className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 whitespace-nowrap"
+                    >
+                      重置
+                    </button>
+                  )}
                   <button
-                    onClick={() => setZoom("fit")}
-                    className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 whitespace-nowrap"
+                    onClick={() => setZoom(1)}
+                    className={`text-xs whitespace-nowrap transition-colors ${
+                      zoom === 1
+                        ? "text-foreground font-medium"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
                   >
-                    重置
+                    1:1
                   </button>
-                )}
+                </div>
               </div>
 
               <Button size="sm" onClick={handleApply} disabled={!canApply || applying}>
