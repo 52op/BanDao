@@ -18,9 +18,6 @@ import {
   RotateCw,
   RotateCcw,
   Check,
-  ZoomIn,
-  ZoomOut,
-  Maximize,
   ChevronDown,
 } from "lucide-react";
 
@@ -34,8 +31,6 @@ const ASPECT_PRESETS = [
   { label: "3:2", value: 3 / 2 },
   { label: "5:7", value: 5 / 7 },
 ];
-
-const ZOOM_STEPS = [0.5, 0.75, 1, 1.5, 2, 3, 4];
 
 const OUTPUT_EXT: Record<string, string> = {
   png: "png", jpeg: "jpg", webp: "webp",
@@ -67,22 +62,18 @@ export default function ImageCropTool() {
   const [aspectRatio, setAspectRatio] = useState<number | undefined>(undefined);
   const [outputFormat, setOutputFormat] = useState<"png" | "jpeg" | "webp">("png");
   const [quality, setQuality] = useState(90);
-  const [zoomIndex, setZoomIndex] = useState(2);
   const [showOutput, setShowOutput] = useState(false);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const rotatedUrlRef = useRef<string | null>(null);
 
   const activeFile = files[activeIndex];
   const displaySrc = rotatedSrc || activeFile?.previewUrl || null;
-  const zoom = ZOOM_STEPS[zoomIndex];
-  const isFit = zoom === 1;
 
   useEffect(() => {
     setRotation(0);
     setCrop(undefined);
     setCompletedCrop(null);
     setAspectRatio(undefined);
-    setZoomIndex(2);
     setShowOutput(false);
     if (rotatedUrlRef.current) {
       URL.revokeObjectURL(rotatedUrlRef.current);
@@ -330,7 +321,7 @@ export default function ImageCropTool() {
       />
 
       {files.length > 0 && (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 min-h-0">
           {/* 工具栏 */}
           <div className="flex items-center gap-1.5 flex-wrap rounded-lg border bg-muted/20 px-3 py-2">
             <div className="flex items-center gap-1">
@@ -346,7 +337,7 @@ export default function ImageCropTool() {
                 variant={mode === "resize" ? "default" : "ghost"}
                 onClick={() => setMode("resize")}
               >
-                <Maximize className="size-3.5" /> 缩放
+                <ChevronDown className="size-3.5 rotate-45" /> 缩放
               </Button>
             </div>
 
@@ -433,7 +424,7 @@ export default function ImageCropTool() {
             </div>
           </div>
 
-          {/* 输出设置（可折叠） */}
+          {/* 输出设置 */}
           {showOutput && (
             <div className="flex items-center gap-3 rounded-lg border bg-muted/10 px-3 py-1.5 text-sm">
               <select
@@ -460,7 +451,7 @@ export default function ImageCropTool() {
                 </div>
               )}
               <span className="text-xs text-muted-foreground ml-auto">
-                {originalSize && `${originalSize.w} × ${originalSize.h} px`}
+                {originalSize && `${originalSize.w} × ${originalSize.h}`}
               </span>
             </div>
           )}
@@ -484,94 +475,52 @@ export default function ImageCropTool() {
             </div>
           )}
 
-          {/* 预览区域 */}
-          <div
-            className="relative rounded-lg border bg-muted/20 flex items-start justify-center overflow-auto"
-            style={{
-              height: isFit ? `min(calc(100vh - 380px), ${50}vh)` : `${50 * zoom}vh`,
-              minHeight: 300,
-              scrollbarWidth: "thin",
-              scrollbarColor: "hsl(var(--border)) transparent",
-            }}
-          >
-            {displaySrc ? (
-              mode === "crop" ? (
-                <ReactCrop
-                  crop={crop}
-                  onChange={(c) => setCrop(c)}
-                  onComplete={(c) => setCompletedCrop(c)}
-                  aspect={aspectRatio}
-                >
+          {/* 预览区域：宽度100%，高度由图片决定，超出窗口时页面滚动 */}
+          <div className="rounded-lg border bg-muted/10 overflow-hidden">
+            <div className="flex items-start justify-center p-1 w-full">
+              {displaySrc ? (
+                mode === "crop" ? (
+                  <ReactCrop
+                    crop={crop}
+                    onChange={(c) => setCrop(c)}
+                    onComplete={(c) => setCompletedCrop(c)}
+                    aspect={aspectRatio}
+                    className="max-w-full"
+                  >
+                    <img
+                      src={displaySrc}
+                      alt="裁剪预览"
+                      className="max-w-full h-auto"
+                      onLoad={handleImageLoad}
+                    />
+                  </ReactCrop>
+                ) : (
                   <img
                     src={displaySrc}
-                    alt="裁剪预览"
-                    className="max-w-full object-contain"
-                    style={{
-                      maxHeight: isFit ? "none" : "none",
-                      width: isFit ? "100%" : `${zoom * 100}%`,
-                      maxWidth: isFit ? "100%" : "none",
-                      height: "auto",
-                    }}
+                    alt="调整预览"
+                    className="max-w-full h-auto"
                     onLoad={handleImageLoad}
                   />
-                </ReactCrop>
+                )
               ) : (
-                <img
-                  src={displaySrc}
-                  alt="调整预览"
-                  className="max-w-full object-contain"
-                  style={{
-                    maxHeight: isFit ? "none" : "none",
-                    width: isFit ? "100%" : `${zoom * 100}%`,
-                    maxWidth: isFit ? "100%" : "none",
-                    height: "auto",
-                  }}
-                  onLoad={handleImageLoad}
-                />
-              )
-            ) : (
-              <div className="flex items-center justify-center w-full h-full text-muted-foreground text-sm py-16">
-                请先上传图片
-              </div>
-            )}
-          </div>
-
-          {/* 底部状态栏 */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setZoomIndex((i) => Math.max(0, i - 1))}
-                disabled={zoomIndex === 0}
-                className="p-1 rounded hover:bg-muted/50 disabled:opacity-30"
-              >
-                <ZoomOut className="size-4" />
-              </button>
-              <span className="text-xs text-muted-foreground w-12 text-center tabular-nums">
-                {zoom === 1 ? "适应" : `${Math.round(zoom * 100)}%`}
-              </span>
-              <button
-                onClick={() => setZoomIndex((i) => Math.min(ZOOM_STEPS.length - 1, i + 1))}
-                disabled={zoomIndex === ZOOM_STEPS.length - 1}
-                className="p-1 rounded hover:bg-muted/50 disabled:opacity-30"
-              >
-                <ZoomIn className="size-4" />
-              </button>
-              {zoom !== 1 && (
-                <button
-                  onClick={() => setZoomIndex(2)}
-                  className="p-1 rounded hover:bg-muted/50"
-                  title="适应窗口"
-                >
-                  <Maximize className="size-4" />
-                </button>
+                <div className="flex items-center justify-center w-full h-64 text-muted-foreground text-sm">
+                  请先上传图片
+                </div>
               )}
             </div>
-            {originalSize && (
-              <span className="text-xs text-muted-foreground">
-                {originalSize.w} × {originalSize.h} px
-              </span>
-            )}
           </div>
+
+          {/* 图片信息 */}
+          {originalSize && (
+            <p className="text-xs text-muted-foreground text-center">
+              {originalSize.w} × {originalSize.h} px
+              {mode === "crop" && completedCrop && (
+                <span className="ml-3">
+                  选区：{Math.round(completedCrop.width)} × {Math.round(completedCrop.height)} px
+                </span>
+              )}
+            </p>
+          )}
         </div>
       )}
 
